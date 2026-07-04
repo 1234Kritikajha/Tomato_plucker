@@ -1,0 +1,26 @@
+{
+  "images": [],
+  "annotations": [],
+  "categories": [
+    {
+      "id": 0,
+      "name": "ripe"
+    },
+    {
+      "id": 1,
+      "name": "unripe"
+    },
+    {
+      "id": 2,
+      "name": "half_ripe"
+    },
+    {
+      "id": 3,
+      "name": "healthy"
+    },
+    {
+      "id": 4,
+      "name": "damaged"
+    }
+  ]
+}

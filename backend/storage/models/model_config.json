@@ -1,0 +1,21 @@
+{
+  "ripeness_classes": [
+    "ripe",
+    "unripe",
+    "half_ripe"
+  ],
+  "condition_classes": [
+    "healthy",
+    "damaged"
+  ],
+  "plucking_decision": {
+    "logic": "ripeness == 'ripe' AND condition == 'healthy'",
+    "ripe_class_index": 0,
+    "healthy_class_index": 0,
+    "description": "Tomato is pluckable if it's ripe AND healthy"
+  },
+  "thresholds": {
+    "ripeness_confidence": 0.7,
+    "condition_confidence": 0.7
+  }
+}

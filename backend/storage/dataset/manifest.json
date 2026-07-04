@@ -1,0 +1,38 @@
+{
+  "dataset_name": "tomato_plucking_dataset",
+  "version": "1.0",
+  "created_at": "2026-07-04 17:05:42",
+  "classes": {
+    "ripeness": [
+      "ripe",
+      "unripe",
+      "half_ripe"
+    ],
+    "condition": [
+      "healthy",
+      "damaged"
+    ]
+  },
+  "plucking_decision": {
+    "logic": "ripeness == 'ripe' AND condition == 'healthy'",
+    "description": "Only ripe and healthy tomatoes should be plucked"
+  },
+  "statistics": {
+    "organized": {
+      "ripe_healthy": 350,
+      "ripe_damaged": 350,
+      "unripe_healthy": 350,
+      "unripe_damaged": 350,
+      "half_ripe_healthy": 350,
+      "half_ripe_damaged": 350
+    },
+    "augmented": {
+      "ripe_healthy": 4550,
+      "ripe_damaged": 4550,
+      "unripe_healthy": 4550,
+      "unripe_damaged": 4550,
+      "half_ripe_healthy": 4550,
+      "half_ripe_damaged": 4550
+    }
+  }
+}

@@ -1,0 +1,1 @@
+{"type": "low_confidence", "data": {"filename": "1781163718_tmpj0ra6xgo.jpg", "timestamp": "2026-07-04T12:04:31.056958+00:00", "box": [0.0, 0.0, 3024.0, 4032.0], "ripeness": "Unripe", "ripeness_conf": 0.36253729462623596, "condition": "Healthy", "condition_conf": 0.6517326235771179, "pick": false, "localization_source": "classic_cv"}}

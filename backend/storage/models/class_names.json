@@ -1,0 +1,11 @@
+{
+  "ripeness": [
+    "ripe",
+    "unripe",
+    "half_ripe"
+  ],
+  "condition": [
+    "healthy",
+    "damaged"
+  ]
+}
