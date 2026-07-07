@@ -397,4 +397,82 @@ class TomatoDetector:
                 f.write(json.dumps(wrapped, ensure_ascii=False) + "\n")
         except Exception:
             logger.exception("Failed to log/flag low-confidence sample")
+    
+    def detect_batch(
+        self,
+        image_batch: List[bytes],
+        filenames: Optional[List[str]] = None,
+        run_yolo: bool = False
+    ) -> List[List[Dict[str, Any]]]:
+        """Run detection on a batch of images.
+        
+        Args:
+            image_batch: List of image bytes
+            filenames: Optional list of filenames
+            run_yolo: Whether to use YOLO for detection
+            
+        Returns:
+            List of detection results for each image
+        """
+        if filenames is None:
+            filenames = [f"image_{i}.jpg" for i in range(len(image_batch))]
+        
+        results = []
+        for i, (image_bytes, filename) in enumerate(zip(image_batch, filenames)):
+            try:
+                detections = self.detect_and_classify(
+                    image_bytes,
+                    filename=filename,
+                    run_yolo=run_yolo
+                )
+                results.append(detections)
+            except Exception as e:
+                logger.error(f"Failed to process image {filename}: {e}")
+                results.append([])
+        
+        return results
+    
+    def get_model_info(self) -> Dict[str, Any]:
+        """Get information about the detector and model.
+        
+        Returns:
+            Dictionary with model information
+        """
+        return {
+            "model_loaded": self._primary_model_loaded,
+            "localization_source": self.localization_source,
+            "input_size": self.input_size,
+            "low_conf_threshold": self.low_conf_threshold,
+            "min_box_area_ratio": self.min_box_area_ratio,
+            "ripeness_classes": list(self.RIPENESS_CLASSES),
+            "condition_classes": list(self.CONDITION_CLASSES),
+            "model_path": str(self._model_path) if self._model_path else None,
+            "class_names_path": str(self._class_names_path) if self._class_names_path else None,
+        }
+    
+    def update_threshold(self, new_threshold: float) -> None:
+        """Update the low confidence threshold.
+        
+        Args:
+            new_threshold: New threshold value (0-1)
+        """
+        if 0.0 <= new_threshold <= 1.0:
+            self.low_conf_threshold = float(new_threshold)
+            logger.info(f"Updated low confidence threshold to {new_threshold}")
+        else:
+            logger.warning(f"Invalid threshold value: {new_threshold}. Must be between 0 and 1.")
+    
+    def reload_model(self) -> bool:
+        """Reload the model from disk.
+        
+        Returns:
+            True if reload successful, False otherwise
+        """
+        try:
+            self._load_primary_or_fallback()
+            logger.info("Model reload attempted")
+            return self._primary_model_loaded
+        except Exception as e:
+            logger.error(f"Failed to reload model: {e}")
+            return False
 

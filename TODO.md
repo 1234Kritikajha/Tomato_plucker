@@ -1,13 +1,10 @@
-# Tomato_plucker — Task progress
+# TODO
 
-- [x] Frontend dependency install (npm ci/install in `frontend/`)
-- [x] Backend dependency install in `.venv/` (FastAPI, Uvicorn, OpenCV, Pillow, NumPy, python-multipart)
-- [x] Start backend (uvicorn on :8000)
-- [x] Start frontend (Vite dev server on :5173)
-- [x] Smoke test backend health endpoint
-- [x] Smoke test backend upload/predict endpoints (extension validation confirmed)
-
-Notes:
-- `tensorflow` install failed on this environment because pip cannot find any compatible wheel for Python 3.14 on macOS.
-- Backend gracefully falls back to OpenCV/classic CV when the Keras model can't be loaded.
+## Mobile/Webcam Integration (captured-frame inference polish)
+- [x] Review existing `LiveDetectionView.jsx` + `cameraCapture.js` implementation details
+- [x] Add camera selector (front/back) using `facingMode` toggle
+- [x] Improve permission/error handling messages for mobile browsers
+- [x] Add optional bounding-box overlay on top of the video (canvas overlay)
+- [x] Tighten detection sampling logic (avoid overlapping uploads; handle latency)
+- [ ] Manual test checklist (start/stop, permissions denied, orientation changes)
 

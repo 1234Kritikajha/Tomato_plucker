@@ -17,6 +17,15 @@ def _connect() -> sqlite3.Connection:
     return sqlite3.connect(str(DB_PATH))
 
 
+def get_db_session() -> sqlite3.Connection:
+    """Get a database session for use with dependencies.
+    
+    Returns:
+        SQLite connection object
+    """
+    return _connect()
+
+
 def init_db() -> None:
     with _connect() as conn:
         conn.execute(
@@ -256,4 +265,292 @@ def get_recent_predictions(limit: int = 10) -> List[Dict[str, Any]]:
         )
 
     return out
+
+
+def get_prediction_by_id(prediction_id: int) -> Optional[Dict[str, Any]]:
+    """Get a specific prediction by ID.
+    
+    Args:
+        prediction_id: Prediction ID
+        
+    Returns:
+        Prediction data or None if not found
+    """
+    with _connect() as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(
+            """
+            SELECT
+                p.id AS prediction_id,
+                p.filename,
+                p.timestamp,
+                p.box_json,
+                p.ripeness,
+                p.ripeness_conf,
+                p.condition,
+                p.condition_conf,
+                p.pick
+            FROM predictions p
+            WHERE p.id = ?
+            """,
+            (int(prediction_id),),
+        )
+        row = cur.fetchone()
+
+    if not row:
+        return None
+
+    try:
+        box_parsed = json.loads(row["box_json"]) if isinstance(row["box_json"], str) else row["box_json"]
+    except Exception:
+        box_parsed = {"raw": row["box_json"]}
+
+    return {
+        "prediction_id": int(row["prediction_id"]),
+        "filename": str(row["filename"]),
+        "timestamp": str(row["timestamp"]),
+        "box_json": box_parsed,
+        "ripeness": str(row["ripeness"]),
+        "ripeness_conf": float(row["ripeness_conf"]),
+        "condition": str(row["condition"]),
+        "condition_conf": float(row["condition_conf"]),
+        "pick": bool(row["pick"]),
+    }
+
+
+def get_predictions_by_date_range(
+    start_date: str,
+    end_date: str,
+    limit: int = 100
+) -> List[Dict[str, Any]]:
+    """Get predictions within a date range.
+    
+    Args:
+        start_date: Start date string (ISO format)
+        end_date: End date string (ISO format)
+        limit: Maximum number of results
+        
+    Returns:
+        List of predictions
+    """
+    with _connect() as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute(
+            """
+            SELECT
+                p.id AS prediction_id,
+                p.filename,
+                p.timestamp,
+                p.box_json,
+                p.ripeness,
+                p.ripeness_conf,
+                p.condition,
+                p.condition_conf,
+                p.pick
+            FROM predictions p
+            WHERE p.timestamp >= ? AND p.timestamp <= ?
+            ORDER BY p.timestamp DESC
+            LIMIT ?
+            """,
+            (start_date, end_date, int(limit)),
+        )
+        rows = cur.fetchall()
+
+    out: List[Dict[str, Any]] = []
+    for r in rows:
+        try:
+            box_parsed = json.loads(r["box_json"]) if isinstance(r["box_json"], str) else r["box_json"]
+        except Exception:
+            box_parsed = {"raw": r["box_json"]}
+
+        out.append({
+            "prediction_id": int(r["prediction_id"]),
+            "filename": str(r["filename"]),
+            "timestamp": str(r["timestamp"]),
+            "box_json": box_parsed,
+            "ripeness": str(r["ripeness"]),
+            "ripeness_conf": float(r["ripeness_conf"]),
+            "condition": str(r["condition"]),
+            "condition_conf": float(r["condition_conf"]),
+            "pick": bool(r["pick"]),
+        })
+
+    return out
+
+
+def get_prediction_statistics() -> Dict[str, Any]:
+    """Get prediction statistics.
+    
+    Returns:
+        Dictionary with statistics
+    """
+    with _connect() as conn:
+        conn.row_factory = sqlite3.Row
+        
+        # Total predictions
+        cur = conn.execute("SELECT COUNT(*) as count FROM predictions")
+        total_predictions = cur.fetchone()["count"]
+        
+        # Ripeness distribution
+        cur = conn.execute("""
+            SELECT ripeness, COUNT(*) as count 
+            FROM predictions 
+            GROUP BY ripeness
+        """)
+        ripeness_dist = {row["ripeness"]: row["count"] for row in cur.fetchall()}
+        
+        # Condition distribution
+        cur = conn.execute("""
+            SELECT condition, COUNT(*) as count 
+            FROM predictions 
+            GROUP BY condition
+        """)
+        condition_dist = {row["condition"]: row["count"] for row in cur.fetchall()}
+        
+        # Pluckable count
+        cur = conn.execute("SELECT COUNT(*) as count FROM predictions WHERE pick = 1")
+        pluckable_count = cur.fetchone()["count"]
+        
+        # Average confidence
+        cur = conn.execute("""
+            SELECT AVG(ripeness_conf) as avg_ripeness, AVG(condition_conf) as avg_condition
+            FROM predictions
+        """)
+        avg_conf = cur.fetchone()
+        
+        return {
+            "total_predictions": total_predictions,
+            "ripeness_distribution": ripeness_dist,
+            "condition_distribution": condition_dist,
+            "pluckable_count": pluckable_count,
+            "average_ripeness_confidence": float(avg_conf["avg_ripeness"] or 0),
+            "average_condition_confidence": float(avg_conf["avg_condition"] or 0),
+        }
+
+
+def insert_model_version(
+    version_string: str,
+    path: str,
+    accuracy: Optional[float] = None,
+    recall: Optional[float] = None,
+    precision: Optional[float] = None,
+    f1_score: Optional[float] = None,
+    dataset_size: Optional[int] = None,
+    deployed_at: Optional[str] = None
+) -> int:
+    """Insert a model version record.
+    
+    Args:
+        version_string: Model version identifier
+        path: Path to model file
+        accuracy: Model accuracy
+        recall: Model recall
+        precision: Model precision
+        f1_score: Model F1 score
+        dataset_size: Size of training dataset
+        deployed_at: Deployment timestamp
+        
+    Returns:
+        Row ID of inserted record
+    """
+    if deployed_at is None:
+        from datetime import datetime, timezone
+        deployed_at = datetime.now(timezone.utc).isoformat()
+    
+    with _connect() as conn:
+        cur = conn.execute(
+            """
+            INSERT INTO model_versions (
+                version_string, path, accuracy, recall, precision,
+                f1_score, dataset_size, deployed_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                version_string,
+                path,
+                accuracy,
+                recall,
+                precision,
+                f1_score,
+                dataset_size,
+                deployed_at
+            ),
+        )
+        return int(cur.lastrowid)
+
+
+def get_model_versions() -> List[Dict[str, Any]]:
+    """Get all model versions.
+    
+    Returns:
+        List of model version records
+    """
+    with _connect() as conn:
+        conn.row_factory = sqlite3.Row
+        cur = conn.execute("""
+            SELECT 
+                version_string, path, accuracy, recall, precision,
+                f1_score, dataset_size, deployed_at
+            FROM model_versions
+            ORDER BY deployed_at DESC
+        """)
+        rows = cur.fetchall()
+
+    return [
+        {
+            "version_string": row["version_string"],
+            "path": row["path"],
+            "accuracy": float(row["accuracy"]) if row["accuracy"] else None,
+            "recall": float(row["recall"]) if row["recall"] else None,
+            "precision": float(row["precision"]) if row["precision"] else None,
+            "f1_score": float(row["f1_score"]) if row["f1_score"] else None,
+            "dataset_size": row["dataset_size"],
+            "deployed_at": row["deployed_at"],
+        }
+        for row in rows
+    ]
+
+
+def delete_old_predictions(days: int = 30) -> int:
+    """Delete predictions older than specified days.
+    
+    Args:
+        days: Number of days to keep
+        
+    Returns:
+        Number of deleted records
+    """
+    from datetime import datetime, timedelta
+    
+    cutoff_date = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+    
+    with _connect() as conn:
+        cur = conn.execute(
+            "DELETE FROM predictions WHERE timestamp < ?",
+            (cutoff_date,)
+        )
+        return cur.rowcount
+
+
+def cleanup_database() -> Dict[str, int]:
+    """Clean up database by removing old records.
+    
+    Returns:
+        Dictionary with cleanup statistics
+    """
+    stats = {
+        "predictions_deleted": delete_old_predictions(days=30),
+        "annotations_deleted": 0,
+    }
+    
+    # Also delete orphaned annotations
+    with _connect() as conn:
+        cur = conn.execute("""
+            DELETE FROM annotations 
+            WHERE prediction_id NOT IN (SELECT id FROM predictions)
+        """)
+        stats["annotations_deleted"] = cur.rowcount
+    
+    return stats
 

@@ -1,4 +1,223 @@
+import { useEffect, useRef, useState } from 'react'
+import apiClient from '../api/client.js'
+import useRafLoop from '../utils/useRafLoop.js'
+import { captureFrameToBlob, getUserMediaStream } from '../utils/cameraCapture.js'
+
+// Minimal overlay helper: draws bounding boxes over the video.
+// Uses server-provided detection schema (bounding_box: {x,y,width,height}).
+const drawDetections = ({ ctx, detections, video, canvas }) => {
+  if (!ctx || !detections || !video) return
+
+  const vW = video.videoWidth
+  const vH = video.videoHeight
+  if (!vW || !vH) return
+
+  // Canvas is sized to match the displayed video box (via CSS 100%).
+  const cW = canvas.width
+  const cH = canvas.height
+  if (!cW || !cH) return
+
+  ctx.clearRect(0, 0, cW, cH)
+
+  const sx = cW / vW
+  const sy = cH / vH
+
+  for (const d of detections) {
+    const bb = d?.bounding_box
+    if (!bb) continue
+
+    const x = bb.x * sx
+    const y = bb.y * sy
+    const w = bb.width * sx
+    const h = bb.height * sy
+
+    ctx.strokeStyle = 'rgba(34, 197, 94, 0.95)'
+    ctx.lineWidth = Math.max(2, Math.floor(Math.min(sx, sy)))
+    ctx.strokeRect(x, y, w, h)
+
+    const label = d?.classification?.ripeness
+    const text = label ? `${label}` : 'Tomato'
+    ctx.fillStyle = 'rgba(34, 197, 94, 0.95)'
+    ctx.font = '14px sans-serif'
+    ctx.fillText(text, x + 4, Math.max(14, y + 18))
+  }
+}
+
+
 export default function LiveDetectionView() {
+  const videoRef = useRef(null)
+  const canvasRef = useRef(null)
+  const streamRef = useRef(null)
+
+
+  const [running, setRunning] = useState(false)
+  const [status, setStatus] = useState('Idle')
+  const [fps, setFps] = useState(0)
+  const [detectionsCount, setDetectionsCount] = useState(0)
+  const [modelLabel, setModelLabel] = useState('')
+
+  const [facingMode, setFacingMode] = useState('environment')
+
+  // Throttle server calls; mobile webcams can produce many frames.
+  const [minFrameIntervalMs, setMinFrameIntervalMs] = useState(700)
+  const pendingRef = useRef(false)
+  const lastCallAtRef = useRef(0)
+
+  // Last detection boxes for overlay.
+  const [detections, setDetections] = useState([])
+
+  const [error, setError] = useState(null)
+
+  const stopCamera = async () => {
+    setRunning(false)
+    setStatus('Stopping')
+    pendingRef.current = false
+
+    try {
+      const stream = streamRef.current
+      if (stream) {
+        stream.getTracks().forEach((t) => t.stop())
+      }
+    } catch (e) {
+      // ignore
+    } finally {
+      streamRef.current = null
+      if (videoRef.current) {
+        try {
+          videoRef.current.srcObject = null
+        } catch (_) {}
+      }
+      setStatus('Idle')
+    }
+  }
+
+  const startCamera = async () => {
+    setError(null)
+    setDetectionsCount(0)
+    pendingRef.current = false
+    lastCallAtRef.current = 0
+
+    try {
+
+      setStatus('Starting camera')
+      const stream = await getUserMediaStream({
+        facingMode,
+      })
+
+
+      streamRef.current = stream
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream
+        await videoRef.current.play()
+      }
+
+      setRunning(true)
+      setStatus('Running')
+    } catch (e) {
+      setRunning(false)
+      setStatus('Camera error')
+      const msg = e?.message || ''
+      if (msg.includes('HTTPS')) {
+        setError('Camera access requires HTTPS (or localhost).')
+      } else if (msg.toLowerCase().includes('permission')) {
+        setError('Camera permission denied. Enable camera access in your browser settings.')
+      } else if (msg.toLowerCase().includes('not supported')) {
+        setError('Your browser does not support camera capture (getUserMedia).')
+      } else {
+        setError(msg ? `Camera error: ${msg}` : 'Camera permission denied or camera unavailable.')
+      }
+      console.error(e)
+
+    }
+  }
+
+  // FPS estimate (local render loop)
+  useRafLoop(running, (dtMs) => {
+    if (!dtMs || dtMs <= 0) return
+    const currentFps = Math.round(1000 / dtMs)
+    setFps((prev) => (Number.isFinite(currentFps) ? currentFps : prev))
+  })
+
+  // Keep canvas aligned with the current rendered video size.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    const video = videoRef.current
+    if (!canvas || !video) return
+
+    const syncSize = () => {
+      // Use the element's client size so our overlay matches object-fit cover.
+      const rect = video.getBoundingClientRect()
+      const dpr = window.devicePixelRatio || 1
+      canvas.width = Math.max(1, Math.floor(rect.width * dpr))
+      canvas.height = Math.max(1, Math.floor(rect.height * dpr))
+      const ctx = canvas.getContext('2d')
+      if (ctx) ctx.setTransform(1, 0, 0, 1, 0, 0)
+    }
+
+    syncSize()
+    window.addEventListener('resize', syncSize)
+    return () => window.removeEventListener('resize', syncSize)
+  }, [running])
+
+  useRafLoop(running, async () => {
+    if (pendingRef.current) return
+
+    const now = Date.now()
+    if (now - lastCallAtRef.current < minFrameIntervalMs) return
+
+    const video = videoRef.current
+    if (!video) return
+    if (!video.videoWidth || !video.videoHeight) return
+
+    pendingRef.current = true
+    lastCallAtRef.current = now
+    try {
+      setStatus('Analyzing...')
+
+      const blob = await captureFrameToBlob({ video, mimeType: 'image/jpeg', quality: 0.85 })
+      if (!blob) throw new Error('Failed to capture frame')
+
+      const file = new File([blob], `frame_${now}.jpg`, { type: 'image/jpeg' })
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const result = await apiClient.upload('/predict', formData)
+      const nextDetections = result?.detections ?? []
+
+      setDetectionsCount(result?.summary?.total_tomatoes_detected ?? 0)
+      setModelLabel(result?.model_info?.localization_source ? `Model: ${result.model_info.localization_source}` : '')
+      setDetections(nextDetections)
+
+      const canvas = canvasRef.current
+      const videoEl = videoRef.current
+      if (canvas && videoEl) {
+        const ctx = canvas.getContext('2d')
+        drawDetections({ ctx, detections: nextDetections, video: videoEl, canvas })
+      }
+
+      setStatus('Running')
+
+
+    } catch (e) {
+      console.error('Live detection failed', e)
+      setStatus('Error')
+      setError('Live detection failed. Retrying may work.')
+      // allow next frame
+      pendingRef.current = false
+      return
+    }
+
+    pendingRef.current = false
+  })
+
+  useEffect(() => {
+    return () => {
+      // cleanup on unmount
+      stopCamera()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   return (
     <section className="animate-fadeIn">
       <div className="mb-8">
@@ -6,7 +225,7 @@ export default function LiveDetectionView() {
           Live Detection
         </h1>
         <p className="mt-2 text-sm text-[var(--text-muted)]">
-          Real-time tomato detection and classification using camera feed
+          Real-time tomato detection and classification using mobile/webcam feed
         </p>
       </div>
 
@@ -14,27 +233,68 @@ export default function LiveDetectionView() {
         <div className="lg:col-span-2">
           <div className="card">
             <div className="card-header">
+
               <div className="flex items-center gap-3">
                 <div className="rounded-lg bg-green-100 p-2 dark:bg-green-900/30">
+
+
                   <svg className="h-5 w-5 text-green-600 dark:text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                   </svg>
                 </div>
                 <h3 className="card-title">Camera Feed</h3>
               </div>
-              <div className="flex gap-2">
-                <button className="btn btn-primary">Start Camera</button>
-                <button className="btn btn-secondary">Stop</button>
+              <div className="flex flex-wrap gap-2 items-center">
+                <select
+                  className="select select-bordered"
+                  value={facingMode}
+                  onChange={(e) => setFacingMode(e.target.value)}
+                  disabled={running}
+                  aria-label="Camera facing mode"
+                >
+                  <option value="environment">Rear camera</option>
+                  <option value="user">Front camera</option>
+                </select>
+                <button className="btn btn-primary" onClick={startCamera} disabled={running}>
+                  Start Camera
+                </button>
+
+                <button className="btn btn-secondary" onClick={stopCamera} disabled={!running}>
+                  Stop
+                </button>
               </div>
             </div>
             <div className="card-body">
-              <div className="aspect-video rounded-xl bg-[var(--bg-card-hover)] flex items-center justify-center border-2 border-dashed border-[var(--border-color)]">
-                <div className="text-center">
-                  <div className="text-6xl mb-4 animate-pulse">📷</div>
-                  <div className="text-lg font-medium text-[var(--text-secondary)]">Camera Preview</div>
-                  <div className="text-sm mt-2 text-[var(--text-muted)]">Click "Start Camera" to begin detection</div>
-                </div>
+              <div className="aspect-video rounded-xl bg-[var(--bg-card-hover)] flex items-center justify-center border-2 border-dashed border-[var(--border-color)] relative overflow-hidden">
+
+                {/* Canvas overlay for bounding boxes */}
+                <canvas
+                  ref={canvasRef}
+                  className="absolute inset-0 w-full h-full pointer-events-none"
+                />
+
+                {running ? (
+                  <video
+                    ref={videoRef}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    playsInline
+                    muted
+                  />
+                ) : (
+
+                  <div className="text-center">
+                    <div className="text-6xl mb-4 animate-pulse">📷</div>
+                    <div className="text-lg font-medium text-[var(--text-secondary)]">Camera Preview</div>
+                    <div className="text-sm mt-2 text-[var(--text-muted)]">Click "Start Camera" to begin detection</div>
+                  </div>
+                )}
               </div>
+
+              {error && (
+                <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-red-600 dark:text-red-400 text-sm">
+                  {error}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -54,19 +314,19 @@ export default function LiveDetectionView() {
             <div className="card-body space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--text-secondary)]">Status</span>
-                <span className="status-badge neutral">Idle</span>
+                <span className="status-badge neutral">{status}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--text-secondary)]">FPS</span>
-                <span className="text-sm font-medium text-[var(--text-primary)]">0</span>
+                <span className="text-sm font-medium text-[var(--text-primary)]">{fps}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--text-secondary)]">Detections</span>
-                <span className="text-sm font-medium text-[var(--text-primary)]">0</span>
+                <span className="text-sm font-medium text-[var(--text-primary)]">{detectionsCount}</span>
               </div>
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--text-secondary)]">Model</span>
-                <span className="text-sm font-medium text-[var(--text-primary)]">OpenCV Fallback</span>
+                <span className="text-sm font-medium text-[var(--text-primary)]">{modelLabel || 'OpenCV Fallback'}</span>
               </div>
             </div>
           </div>
@@ -85,22 +345,20 @@ export default function LiveDetectionView() {
             </div>
             <div className="card-body space-y-4">
               <div>
-                <label className="text-sm text-[var(--text-secondary)]">Confidence Threshold</label>
+                <label className="text-sm text-[var(--text-secondary)]">Detection interval</label>
                 <input
                   type="range"
-                  min="0"
-                  max="100"
-                  value="70"
+                  min="300"
+                  max="1500"
+                  step="50"
+                  value={minFrameIntervalMs}
+                  onChange={(e) => setMinFrameIntervalMs(parseInt(e.target.value, 10))}
                   className="mt-2 w-full h-2 bg-[var(--bg-secondary)] rounded-lg appearance-none cursor-pointer"
                 />
-                <div className="mt-1 text-xs text-[var(--text-muted)]">70%</div>
+                <div className="mt-1 text-xs text-[var(--text-muted)]">{minFrameIntervalMs}ms (slower = cheaper)</div>
               </div>
-              <div>
-                <label className="text-sm text-[var(--text-secondary)]">Detection Mode</label>
-                <select className="mt-2 w-full rounded-lg border border-[var(--border-color)] px-3 py-2 text-sm dark:bg-[var(--bg-card)] dark:text-white">
-                  <option>OpenCV Classic</option>
-                  <option disabled>TensorFlow (Unavailable)</option>
-                </select>
+              <div className="text-xs text-[var(--text-muted)]">
+                Uses your backend <span className="font-semibold">POST /api/predict</span> for each sampled frame.
               </div>
             </div>
           </div>
@@ -109,3 +367,4 @@ export default function LiveDetectionView() {
     </section>
   )
 }
+
