@@ -3,6 +3,7 @@ import apiClient from '../api/client.js'
 import useRafLoop from '../utils/useRafLoop.js'
 import { captureFrameToBlob, getUserMediaStream } from '../utils/cameraCapture.js'
 
+
 // Minimal overlay helper: draws bounding boxes over the video.
 // Uses server-provided detection schema (bounding_box: {x,y,width,height}).
 const drawDetections = ({ ctx, detections, video, canvas }) => {
@@ -57,6 +58,10 @@ export default function LiveDetectionView() {
   const [modelLabel, setModelLabel] = useState('')
 
   const [facingMode, setFacingMode] = useState('environment')
+  const [isOpen, setIsOpen] = useState(false)
+
+  const dropdownRef = useRef(null)
+
 
   // Throttle server calls; mobile webcams can produce many frames.
   const [minFrameIntervalMs, setMinFrameIntervalMs] = useState(700)
@@ -211,12 +216,34 @@ export default function LiveDetectionView() {
   })
 
   useEffect(() => {
+    const onDocMouseDown = (e) => {
+      if (!isOpen) return
+      const el = dropdownRef.current
+      if (!el) return
+      if (!el.contains(e.target)) setIsOpen(false)
+    }
+
+    const onKeyDown = (e) => {
+      if (e.key === 'Escape') setIsOpen(false)
+    }
+
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [isOpen])
+
+  useEffect(() => {
     return () => {
       // cleanup on unmount
       stopCamera()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
 
   return (
     <section className="animate-fadeIn">
@@ -245,16 +272,79 @@ export default function LiveDetectionView() {
                 <h3 className="card-title">Camera Feed</h3>
               </div>
               <div className="flex flex-wrap gap-2 items-center">
-                <select
-                  className="select select-bordered"
-                  value={facingMode}
-                  onChange={(e) => setFacingMode(e.target.value)}
-                  disabled={running}
-                  aria-label="Camera facing mode"
-                >
-                  <option value="environment">Rear camera</option>
-                  <option value="user">Front camera</option>
-                </select>
+                <div ref={dropdownRef} className="relative">
+                  <button
+                    type="button"
+                    className={
+                      'inline-flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/70 dark:focus:ring-emerald-400/70 ' +
+                      (running
+                        ? 'cursor-not-allowed opacity-60'
+                        : 'hover:shadow-[0_0_10px_rgba(16,185,129,0.12)]') +
+                      (isOpen
+                        ? 'shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                        : '') +
+                      ' ' +
+                      'bg-slate-800/50 border-emerald-500/30 text-slate-200 ' +
+                      'dark:bg-[#1e2530] dark:border-emerald-500/30 dark:text-slate-200 ' +
+                      'bg-white text-slate-800 border-slate-300 dark:bg-slate-800/50 dark:text-slate-200'
+                    }
+                    onClick={() => {
+                      if (running) return
+                      setIsOpen((v) => !v)
+                    }}
+                    disabled={running}
+                    aria-haspopup="listbox"
+                    aria-expanded={isOpen}
+                  >
+                    <span className="truncate">
+                      {facingMode === 'user' ? 'Front camera' : 'Rear camera'}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className={
+                        'inline-flex h-5 w-5 items-center justify-center transition-transform duration-200 rotate-0 ' +
+                        (isOpen ? 'rotate-180' : '')
+                      }
+                    >
+                      <span className="text-base leading-none">v</span>
+                    </span>
+
+                  </button>
+
+                  {isOpen && (
+                    <div
+                      className="absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-slate-700 bg-[#1a202c] shadow-lg"
+                      role="listbox"
+                      aria-label="Camera facing mode options"
+                    >
+                      <button
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-emerald-600/20 hover:text-emerald-400"
+                        role="option"
+                        aria-selected={facingMode === 'environment'}
+                        onClick={() => {
+                          setFacingMode('environment')
+                          setIsOpen(false)
+                        }}
+                      >
+                        Rear camera
+                      </button>
+                      <button
+                        type="button"
+                        className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-emerald-600/20 hover:text-emerald-400"
+                        role="option"
+                        aria-selected={facingMode === 'user'}
+                        onClick={() => {
+                          setFacingMode('user')
+                          setIsOpen(false)
+                        }}
+                      >
+                        Front camera
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <button className="btn btn-primary" onClick={startCamera} disabled={running}>
                   Start Camera
                 </button>
@@ -263,6 +353,7 @@ export default function LiveDetectionView() {
                   Stop
                 </button>
               </div>
+
             </div>
             <div className="card-body">
               <div className="aspect-video rounded-xl bg-[var(--bg-card-hover)] flex items-center justify-center border-2 border-dashed border-[var(--border-color)] relative overflow-hidden">
