@@ -4,9 +4,16 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    host: '0.0.0.0', // Network access enable karega
+    host: '0.0.0.0',
     port: 5173,
     strictPort: true,
+    proxy: {
+      // Forward all /api/* requests to FastAPI backend
+      '/api': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
   },
 })
-

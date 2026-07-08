@@ -1,10 +1,20 @@
-# TODO
+# Tomato Plucker - Connection Task Progress
 
-## Mobile/Webcam Integration (captured-frame inference polish)
-- [x] Review existing `LiveDetectionView.jsx` + `cameraCapture.js` implementation details
-- [x] Add camera selector (front/back) using `facingMode` toggle
-- [x] Improve permission/error handling messages for mobile browsers
-- [x] Add optional bounding-box overlay on top of the video (canvas overlay)
-- [x] Tighten detection sampling logic (avoid overlapping uploads; handle latency)
-- [ ] Manual test checklist (start/stop, permissions denied, orientation changes)
+- [x] Inspect backend routers for metrics endpoints used by dashboards
+
+- [x] Update frontend MonitoringView to call:
+  - [x] GET /api/metrics/summary
+  - [x] GET /api/metrics/realtime
+- [x] Update frontend InferenceDashboard to call:
+  - [x] GET /api/metrics/summary
+  - [x] GET /api/metrics/performance
+  - [x] GET /api/metrics/historical?days=1
+
+- [x] Ensure API client base URL matches backend (uses existing http://192.168.0.152:8000/api)
+- [ ] Manual testing steps:
+  - [ ] Start backend
+  - [ ] Start frontend
+  - [ ] Verify /live
+  - [ ] Verify /monitoring shows live metrics
+  - [ ] Verify /dashboard shows real metrics
 

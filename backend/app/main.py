@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import os
 import sqlite3
 from pathlib import Path
@@ -9,6 +10,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from fastapi import Request
 from fastapi.exceptions import RequestValidationError
+
+logger = logging.getLogger(__name__)
 
 
 from app.routers.predict_router import router as predict_router
@@ -20,6 +23,7 @@ from app.routers.dataset_router import router as dataset_router
 from app.routers.evaluation_router import router as evaluation_router
 from app.routers.export_router import router as export_router
 from app.routers.system_router import router as system_router
+from app.routers.live_detection_router import router as live_detection_router
 
 
 
@@ -37,8 +41,8 @@ def _create_app() -> FastAPI:
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=origins,
-        allow_credentials=True,
+        allow_origins=["*"],   # dev: allow all origins
+        allow_credentials=False,  # must be False when allow_origins=["*"]
         allow_methods=["*"],
         allow_headers=["*"],
     )
@@ -54,6 +58,7 @@ def _create_app() -> FastAPI:
     app.include_router(evaluation_router, prefix="/api")
     app.include_router(export_router, prefix="/api")
     app.include_router(system_router, prefix="/api")
+    app.include_router(live_detection_router, prefix="/api")
 
 
     @app.get("/api/health")
@@ -98,6 +103,17 @@ def _create_app() -> FastAPI:
             "tracking_flags": tracking_flags,
         }
 
+    # Initialize detector for live detection
+    try:
+        from core.tomato_detector import TomatoDetector
+        from app.routers.live_detection_router import set_detector
+        
+        detector_instance = TomatoDetector()
+        set_detector(detector_instance)
+        logger.info("Detector initialized for live detection")
+    except Exception as e:
+        logger.warning(f"Failed to initialize detector for live detection: {e}")
+    
     return app
 
 

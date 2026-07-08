@@ -1,0 +1,160 @@
+2026-07-08 23:48:11 [INFO] pipeline.run — ============================================================
+2026-07-08 23:48:11 [INFO] pipeline.run —   Tomato Plucker — Automated Training Pipeline
+2026-07-08 23:48:11 [INFO] pipeline.run — ============================================================
+2026-07-08 23:48:11 [INFO] pipeline.run — PipelineConfig:
+  project_root          : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker
+  dataset_dir           : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/dataset
+  models_dir            : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/models
+  exports_dir           : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/exports
+  target_images/class   : 50
+  classes (5)          : ['Unripe', 'Half-Ripe', 'Ripe', 'Healthy', 'Damaged']
+  yolo_model_size       : yolov8s
+  epochs                : 100
+  batch_size            : 16
+  image_size            : 640
+  device                : auto
+  roboflow_credentials  : ✗ (missing)
+  kaggle_credentials    : ✗ (missing)
+2026-07-08 23:48:11 [INFO] pipeline.run — ── Stage: VERIFY ─────────────────────────────────
+2026-07-08 23:48:13 [WARNING] pipeline.run —   No data source credentials found. Pipeline will use local data or demo seed fallback.
+2026-07-08 23:48:13 [INFO] pipeline.run —   Dependencies OK
+2026-07-08 23:48:13 [INFO] pipeline.run — ── Stage: FETCH ──────────────────────────────────
+2026-07-08 23:48:13 [INFO] pipeline.data.fetcher — === DataFetcher: starting fetch ===
+2026-07-08 23:48:13 [WARNING] pipeline.data.fetcher — No API credentials available or all sources failed. Generating demo seed images for dry-run validation.
+2026-07-08 23:48:13 [INFO] pipeline.data.fetcher — Demo seed generated:
+DataManifest (source=demo, total=120)
+  Damaged        : 24
+  Half-Ripe      : 24
+  Healthy        : 24
+  Ripe           : 24
+  Unripe         : 24
+2026-07-08 23:48:13 [INFO] pipeline.run —   DataManifest (source=demo, total=120)
+  Damaged        : 24
+  Half-Ripe      : 24
+  Healthy        : 24
+  Ripe           : 24
+  Unripe         : 24
+2026-07-08 23:48:13 [INFO] pipeline.run — ── Stage: AUGMENT ────────────────────────────────
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor — === DataAugmentor: starting augmentation ===
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —   Target per class : 50
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —   Classes          : ['Unripe', 'Half-Ripe', 'Ripe', 'Healthy', 'Damaged']
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —   [Unripe] Seed images: 24 | Existing aug: 3,443 | Need: -3,393
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —   [Unripe] Done — total aug images: 3,443
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —   [Half-Ripe] Seed images: 24 | Existing aug: 0 | Need: 50
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 2/50 (60 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 4/50 (26 img/s, ETA 2s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 6/50 (36 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 8/50 (42 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 10/50 (47 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 12/50 (48 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 14/50 (50 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 16/50 (49 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 18/50 (53 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 20/50 (55 img/s, ETA 1s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 22/50 (58 img/s, ETA 0s)
+2026-07-08 23:48:14 [INFO] pipeline.data.augmentor —     [Half-Ripe] 24/50 (58 img/s, ETA 0s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 26/50 (26 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 28/50 (27 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 30/50 (18 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 32/50 (19 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 34/50 (19 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 36/50 (20 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 38/50 (21 img/s, ETA 1s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 40/50 (22 img/s, ETA 0s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 42/50 (22 img/s, ETA 0s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 44/50 (23 img/s, ETA 0s)
+2026-07-08 23:48:15 [INFO] pipeline.data.augmentor —     [Half-Ripe] 46/50 (24 img/s, ETA 0s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Half-Ripe] 48/50 (24 img/s, ETA 0s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Half-Ripe] 50/50 (25 img/s, ETA 0s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —   [Half-Ripe] Done — total aug images: 50
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —   [Ripe] Seed images: 24 | Existing aug: 0 | Need: 50
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 2/50 (59 img/s, ETA 1s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 4/50 (65 img/s, ETA 1s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 6/50 (53 img/s, ETA 1s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 8/50 (58 img/s, ETA 1s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 10/50 (64 img/s, ETA 1s)
+2026-07-08 23:48:16 [INFO] pipeline.data.augmentor —     [Ripe] 12/50 (70 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 14/50 (9 img/s, ETA 4s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 16/50 (11 img/s, ETA 3s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 18/50 (12 img/s, ETA 3s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 20/50 (13 img/s, ETA 2s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 22/50 (14 img/s, ETA 2s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 24/50 (15 img/s, ETA 2s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 26/50 (16 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 28/50 (17 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 30/50 (18 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 32/50 (19 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 34/50 (20 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 36/50 (21 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 38/50 (21 img/s, ETA 1s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 40/50 (22 img/s, ETA 0s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 42/50 (23 img/s, ETA 0s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 44/50 (23 img/s, ETA 0s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 46/50 (24 img/s, ETA 0s)
+2026-07-08 23:48:17 [INFO] pipeline.data.augmentor —     [Ripe] 48/50 (25 img/s, ETA 0s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Ripe] 50/50 (25 img/s, ETA 0s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —   [Ripe] Done — total aug images: 50
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —   [Healthy] Seed images: 24 | Existing aug: 0 | Need: 50
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 2/50 (18 img/s, ETA 3s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 4/50 (32 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 6/50 (40 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 8/50 (44 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 10/50 (48 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 12/50 (49 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 14/50 (51 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 16/50 (52 img/s, ETA 1s)
+2026-07-08 23:48:18 [INFO] pipeline.data.augmentor —     [Healthy] 18/50 (54 img/s, ETA 1s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 20/50 (17 img/s, ETA 2s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 22/50 (19 img/s, ETA 1s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 24/50 (20 img/s, ETA 1s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 26/50 (22 img/s, ETA 1s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 28/50 (23 img/s, ETA 1s)
+2026-07-08 23:48:19 [INFO] pipeline.data.augmentor —     [Healthy] 30/50 (17 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 32/50 (13 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 34/50 (14 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 36/50 (14 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 38/50 (15 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 40/50 (16 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 42/50 (16 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 44/50 (17 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 46/50 (17 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 48/50 (18 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Healthy] 50/50 (19 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —   [Healthy] Done — total aug images: 50
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —   [Damaged] Seed images: 24 | Existing aug: 0 | Need: 50
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 2/50 (217 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 4/50 (84 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 6/50 (88 img/s, ETA 1s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 8/50 (95 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 10/50 (89 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 12/50 (82 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 14/50 (81 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 16/50 (88 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 18/50 (84 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 20/50 (78 img/s, ETA 0s)
+2026-07-08 23:48:20 [INFO] pipeline.data.augmentor —     [Damaged] 22/50 (78 img/s, ETA 0s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 24/50 (9 img/s, ETA 3s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 26/50 (10 img/s, ETA 2s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 28/50 (11 img/s, ETA 2s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 30/50 (11 img/s, ETA 2s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 32/50 (12 img/s, ETA 2s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 34/50 (12 img/s, ETA 1s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 36/50 (13 img/s, ETA 1s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 38/50 (13 img/s, ETA 1s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 40/50 (14 img/s, ETA 1s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 42/50 (14 img/s, ETA 1s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 44/50 (15 img/s, ETA 0s)
+2026-07-08 23:48:23 [INFO] pipeline.data.augmentor —     [Damaged] 46/50 (16 img/s, ETA 0s)
+2026-07-08 23:48:24 [INFO] pipeline.data.augmentor —     [Damaged] 48/50 (13 img/s, ETA 0s)
+2026-07-08 23:48:24 [INFO] pipeline.data.augmentor —     [Damaged] 50/50 (13 img/s, ETA 0s)
+2026-07-08 23:48:24 [INFO] pipeline.data.augmentor —   [Damaged] Done — total aug images: 50
+2026-07-08 23:48:24 [INFO] pipeline.data.augmentor —   Linked 20 val images to augmented/val/
+2026-07-08 23:48:24 [INFO] pipeline.run —   AugManifest (total_train=3,643)
+  Damaged        : 50
+  Half-Ripe      : 50
+  Healthy        : 50
+  Ripe           : 50
+  Unripe         : 3,443
+  train_images_dir : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/dataset/augmented/train/images
+  val_images_dir   : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/dataset/augmented/val/images
+2026-07-08 23:48:24 [INFO] pipeline.run — Dry-run mode — skipping training & export.

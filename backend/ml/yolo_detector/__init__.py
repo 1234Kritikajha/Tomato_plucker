@@ -1,7 +1,13 @@
-from .yolo_detector import YOLODetector, create_yolo_detector
+from __future__ import annotations
+
+from .yolo_detector import (
+    YOLODetector,
+    YOLODetection,
+    create_yolo_detector
+)
 
 __all__ = [
-    "YOLODetector",
-    "create_yolo_detector",
+    'YOLODetector',
+    'YOLODetection',
+    'create_yolo_detector'
 ]
-

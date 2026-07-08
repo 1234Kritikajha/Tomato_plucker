@@ -1,0 +1,26 @@
+# Tomato Plucker Frontend Testing Checklist
+
+- [x] Test Dashboard (`/dashboard`)
+  - [x] Page loads without errors
+  - [x] Metrics cards show real numbers
+  - [x] Take screenshot
+- [x] Test Monitoring (`/monitoring`)
+  - [x] Page loads without errors
+  - [x] Shows CPU%, Memory, low-confidence count
+  - [x] Take screenshot
+- [x] Test Model Management (`/models`)
+  - [x] Page loads without errors
+  - [x] Shows system info and model list
+- [x] Test System Logs (`/system-logs`)
+  - [x] Page loads without errors
+  - [x] Shows health status cards and log console
+- [x] Test Retraining (`/retraining`)
+  - [x] Page loads without errors
+  - [x] Shows training config form with "Start Training" button
+- [x] Test Upload Image (`/upload-image`)
+  - [x] Page loads without errors
+  - [x] Shows image upload UI
+  - [x] Take screenshot
+- [x] Test Live Detection (`/live`)
+  - [x] Page loads without errors
+  - [x] Shows live detection UI

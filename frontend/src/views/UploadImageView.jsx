@@ -31,16 +31,7 @@ export default function UploadImageView() {
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const response = await fetch('http://192.168.0.152:8000/api/predict', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error('Analysis failed')
-      }
-
-      const result = await response.json()
+      const result = await apiClient.upload('/predict', formData)
       setAnalysisResult(result)
     } catch (err) {
       setError('Failed to analyze image. Please try again.')

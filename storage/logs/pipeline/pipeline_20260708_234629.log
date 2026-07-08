@@ -1,0 +1,43 @@
+2026-07-08 23:46:29 [INFO] pipeline.run — ============================================================
+2026-07-08 23:46:29 [INFO] pipeline.run —   Tomato Plucker — Automated Training Pipeline
+2026-07-08 23:46:29 [INFO] pipeline.run — ============================================================
+2026-07-08 23:46:29 [INFO] pipeline.run — PipelineConfig:
+  project_root          : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker
+  dataset_dir           : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/dataset
+  models_dir            : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/models
+  exports_dir           : /Users/navinkumarjha/Documents/CYBERPEACE/Tomato_plucker/storage/exports
+  target_images/class   : 50,000
+  classes (5)          : ['Unripe', 'Half-Ripe', 'Ripe', 'Healthy', 'Damaged']
+  yolo_model_size       : yolov8s
+  epochs                : 100
+  batch_size            : 16
+  image_size            : 640
+  device                : auto
+  roboflow_credentials  : ✗ (missing)
+  kaggle_credentials    : ✗ (missing)
+2026-07-08 23:46:29 [INFO] pipeline.run — ── Stage: VERIFY ─────────────────────────────────
+2026-07-08 23:46:31 [WARNING] pipeline.run —   No data source credentials found. Pipeline will use local data or demo seed fallback.
+2026-07-08 23:46:31 [INFO] pipeline.run —   Dependencies OK
+2026-07-08 23:46:31 [INFO] pipeline.run — ── Stage: FETCH ──────────────────────────────────
+2026-07-08 23:46:31 [INFO] pipeline.data.fetcher — === DataFetcher: starting fetch ===
+2026-07-08 23:46:31 [INFO] pipeline.data.fetcher — Local data insufficient (0 images across 0 classes). Attempting download…
+2026-07-08 23:46:31 [WARNING] pipeline.data.fetcher — No API credentials available or all sources failed. Generating demo seed images for dry-run validation.
+2026-07-08 23:46:32 [INFO] pipeline.data.fetcher — Demo seed generated:
+DataManifest (source=demo, total=120)
+  Damaged        : 24
+  Half-Ripe      : 24
+  Healthy        : 24
+  Ripe           : 24
+  Unripe         : 24
+2026-07-08 23:46:32 [INFO] pipeline.run —   DataManifest (source=demo, total=120)
+  Damaged        : 24
+  Half-Ripe      : 24
+  Healthy        : 24
+  Ripe           : 24
+  Unripe         : 24
+2026-07-08 23:46:32 [INFO] pipeline.run — ── Stage: AUGMENT ────────────────────────────────
+2026-07-08 23:46:32 [INFO] pipeline.data.augmentor — === DataAugmentor: starting augmentation ===
+2026-07-08 23:46:32 [INFO] pipeline.data.augmentor —   Target per class : 50,000
+2026-07-08 23:46:32 [INFO] pipeline.data.augmentor —   Classes          : ['Unripe', 'Half-Ripe', 'Ripe', 'Healthy', 'Damaged']
+2026-07-08 23:46:32 [INFO] pipeline.data.augmentor —   [Unripe] Seed images: 24 | Existing aug: 0 | Need: 50,000
+2026-07-08 23:47:21 [INFO] pipeline.data.augmentor —     [Unripe] 2,500/50,000 (51 img/s, ETA 934s)
