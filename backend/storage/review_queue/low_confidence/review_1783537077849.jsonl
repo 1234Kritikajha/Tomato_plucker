@@ -1,1 +1,0 @@
-{"type": "low_confidence", "data": {"filename": "test_tomato.jpg", "timestamp": "2026-07-08T18:57:57.848596+00:00", "box": [0.0, 0.0, 640.0, 480.0], "ripeness": "Ripe", "ripeness_conf": 0.9999980926513672, "condition": "Healthy", "condition_conf": 0.5379859209060669, "pick": true, "localization_source": "classic_cv"}}
