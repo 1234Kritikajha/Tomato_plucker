@@ -1,287 +1,120 @@
 from __future__ import annotations
 
+import hashlib
 import logging
+import os
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
-import json
-
-import numpy as np
-
-try:
-    import torch  # type: ignore
-except Exception:  # pragma: no cover
-    torch = None
-
-try:
-    import tensorflow as tf  # type: ignore
-except Exception:  # pragma: no cover
-    tf = None
 
 logger = logging.getLogger(__name__)
 
 
+@dataclass(frozen=True)
+class LoadedModel:
+    """Container for a loaded model and its metadata."""
+
+    model: Any
+    model_path: str
+    sha256: str
+
+
 class ModelLoader:
-    """Load and manage ML models for tomato detection."""
-    
-    def __init__(self, models_dir: Optional[Path] = None):
-        """Initialize model loader.
-        
-        Args:
-            models_dir: Directory containing model files
-        """
-        if models_dir is None:
-            models_dir = Path(__file__).resolve().parents[3] / "storage" / "models"
-        
-        self.models_dir = Path(models_dir)
-        self._loaded_models: Dict[str, Any] = {}
-        self._model_configs: Dict[str, Dict[str, Any]] = {}
-    
-    def load_torch_model(
-        self,
-        model_name: str,
-        model_path: Optional[Path] = None,
-        device: str = "cpu"
-    ) -> Any:
-        """Load a PyTorch model.
-        
-        Args:
-            model_name: Name/identifier for the model
-            model_path: Path to model file (optional)
-            device: Device to load model on
-            
-        Returns:
-            Loaded PyTorch model
-        """
-        if torch is None:
-            raise RuntimeError("PyTorch not available")
-        
-        if model_path is None:
-            model_path = self.models_dir / f"{model_name}.pt"
-        
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-        
-        try:
-            model = torch.load(model_path, map_location=device)
-            model.eval()
-            
-            self._loaded_models[model_name] = model
-            logger.info(f"Loaded PyTorch model {model_name} on {device}")
-            
-            return model
-        except Exception as e:
-            logger.error(f"Failed to load PyTorch model {model_name}: {e}")
-            raise
-    
-    def load_tensorflow_model(
-        self,
-        model_name: str,
-        model_path: Optional[Path] = None
-    ) -> Any:
-        """Load a TensorFlow/Keras model.
-        
-        Args:
-            model_name: Name/identifier for the model
-            model_path: Path to model file (optional)
-            
-        Returns:
-            Loaded TensorFlow model
-        """
-        if tf is None:
-            raise RuntimeError("TensorFlow not available")
-        
-        if model_path is None:
-            model_path = self.models_dir / f"{model_name}.keras"
-        
-        if not model_path.exists():
-            raise FileNotFoundError(f"Model file not found: {model_path}")
-        
-        try:
-            model = tf.keras.models.load_model(str(model_path))
-            
-            self._loaded_models[model_name] = model
-            logger.info(f"Loaded TensorFlow model {model_name}")
-            
-            return model
-        except Exception as e:
-            logger.error(f"Failed to load TensorFlow model {model_name}: {e}")
-            raise
-    
-    def load_model_config(self, config_name: str, config_path: Optional[Path] = None) -> Dict[str, Any]:
-        """Load model configuration.
-        
-        Args:
-            config_name: Name/identifier for the config
-            config_path: Path to config file (optional)
-            
-        Returns:
-            Configuration dictionary
-        """
-        if config_path is None:
-            config_path = self.models_dir / f"{config_name}_config.json"
-        
-        if not config_path.exists():
-            raise FileNotFoundError(f"Config file not found: {config_path}")
-        
-        try:
-            with open(config_path, 'r') as f:
-                config = json.load(f)
-            
-            self._model_configs[config_name] = config
-            logger.info(f"Loaded model config {config_name}")
-            
-            return config
-        except Exception as e:
-            logger.error(f"Failed to load model config {config_name}: {e}")
-            raise
-    
-    def get_model(self, model_name: str) -> Optional[Any]:
-        """Get a loaded model by name.
-        
-        Args:
-            model_name: Name of the model
-            
-        Returns:
-            Loaded model or None if not found
-        """
-        return self._loaded_models.get(model_name)
-    
-    def get_config(self, config_name: str) -> Optional[Dict[str, Any]]:
-        """Get a loaded config by name.
-        
-        Args:
-            config_name: Name of the config
-            
-        Returns:
-            Configuration dictionary or None if not found
-        """
-        return self._model_configs.get(config_name)
-    
-    def unload_model(self, model_name: str) -> bool:
-        """Unload a model from memory.
-        
-        Args:
-            model_name: Name of the model to unload
-            
-        Returns:
-            True if successful, False otherwise
-        """
-        if model_name in self._loaded_models:
-            del self._loaded_models[model_name]
-            logger.info(f"Unloaded model {model_name}")
-            return True
-        return False
-    
-    def unload_all_models(self) -> None:
-        """Unload all models from memory."""
-        self._loaded_models.clear()
-        logger.info("Unloaded all models")
-    
-    def get_loaded_models(self) -> Dict[str, str]:
-        """Get information about loaded models.
-        
-        Returns:
-            Dictionary of model names and their types
-        """
-        model_info = {}
-        for name, model in self._loaded_models.items():
-            if torch is not None and isinstance(model, torch.nn.Module):
-                model_type = "PyTorch"
-            elif tf is not None and isinstance(model, tf.keras.Model):
-                model_type = "TensorFlow"
-            else:
-                model_type = "Unknown"
-            model_info[name] = model_type
-        
-        return model_info
-    
-    def save_model(
-        self,
-        model: Any,
-        model_name: str,
-        model_type: str = "torch"
-    ) -> Path:
-        """Save a model to disk.
-        
-        Args:
-            model: Model to save
-            model_name: Name for the model
-            model_type: Type of model ('torch' or 'tensorflow')
-            
-        Returns:
-            Path to saved model
-        """
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        
-        if model_type == "torch":
-            if torch is None:
-                raise RuntimeError("PyTorch not available")
-            model_path = self.models_dir / f"{model_name}.pt"
-            torch.save(model, model_path)
-        elif model_type == "tensorflow":
-            if tf is None:
-                raise RuntimeError("TensorFlow not available")
-            model_path = self.models_dir / f"{model_name}.keras"
-            model.save(str(model_path))
-        else:
-            raise ValueError(f"Unknown model type: {model_type}")
-        
-        logger.info(f"Saved model {model_name} as {model_type}")
-        return model_path
-    
-    def save_config(self, config: Dict[str, Any], config_name: str) -> Path:
-        """Save model configuration to disk.
-        
-        Args:
-            config: Configuration dictionary
-            config_name: Name for the config
-            
-        Returns:
-            Path to saved config
-        """
-        self.models_dir.mkdir(parents=True, exist_ok=True)
-        
-        config_path = self.models_dir / f"{config_name}_config.json"
-        
-        with open(config_path, 'w') as f:
-            json.dump(config, f, indent=2)
-        
-        logger.info(f"Saved config {config_name}")
-        return config_path
-    
-    def list_available_models(self) -> Dict[str, List[str]]:
-        """List all available model files.
-        
-        Returns:
-            Dictionary of model types and their file names
-        """
-        available = {
-            "torch": [],
-            "tensorflow": [],
-            "configs": []
-        }
-        
-        if not self.models_dir.exists():
-            return available
-        
-        for file_path in self.models_dir.iterdir():
-            if file_path.suffix == ".pt":
-                available["torch"].append(file_path.stem)
-            elif file_path.suffix == ".keras":
-                available["tensorflow"].append(file_path.stem)
-            elif file_path.suffix == ".json" and "config" in file_path.name:
-                available["configs"].append(file_path.stem.replace("_config", ""))
-        
-        return available
+    """Utility for robust model loading with caching and validation.
 
-
-def create_model_loader(models_dir: Optional[Path] = None) -> ModelLoader:
-    """Create a model loader instance.
-    
-    Args:
-        models_dir: Directory containing model files
-        
-    Returns:
-        ModelLoader instance
+    This repo may run with different ML backends (e.g., TensorFlow/Keras).
+    To keep this module lightweight and backend-agnostic, callers provide a
+    `loader_fn` that takes (model_path: str) -> Any.
     """
-    return ModelLoader(models_dir=models_dir)
+
+    def __init__(self) -> None:
+        self._cache: Dict[Tuple[str, str], LoadedModel] = {}
+
+    @staticmethod
+    def sha256_file(path: str) -> str:
+        """Compute SHA-256 for a file."""
+        h = hashlib.sha256()
+        with open(path, "rb") as f:
+            for chunk in iter(lambda: f.read(1024 * 1024), b""):
+                h.update(chunk)
+        return h.hexdigest()
+
+    @staticmethod
+    def _validate_path(model_path: str) -> Path:
+        p = Path(model_path)
+        if not p.exists() or not p.is_file():
+            raise FileNotFoundError(f"Model file not found: {model_path}")
+        if p.stat().st_size == 0:
+            raise ValueError(f"Model file is empty: {model_path}")
+        return p
+
+    def load(
+        self,
+        model_path: str,
+        *,
+        loader_fn,
+        cache: bool = True,
+    ) -> LoadedModel:
+        """Load a model from disk.
+
+        Args:
+            model_path: Path to the model file.
+            loader_fn: Callable used to load the model. Signature: (model_path:str) -> Any.
+            cache: If True, cache by (path, sha256).
+
+        Returns:
+            LoadedModel
+        """
+        p = self._validate_path(model_path)
+        abs_path = str(p.resolve())
+
+        # Compute hash to make cache robust to overwrites.
+        file_hash = self.sha256_file(abs_path)
+        cache_key = (abs_path, file_hash)
+
+        if cache and cache_key in self._cache:
+            return self._cache[cache_key]
+
+        logger.info("Loading model from %s", abs_path)
+        model = loader_fn(abs_path)
+
+        loaded = LoadedModel(model=model, model_path=abs_path, sha256=file_hash)
+        if cache:
+            self._cache[cache_key] = loaded
+        return loaded
+
+
+def create_model_loader() -> ModelLoader:
+    """Factory for a ModelLoader instance."""
+    return ModelLoader()
+
+
+# Common backend helpers
+
+def load_keras_model(model_path: str) -> Any:
+    """Load a Keras/TensorFlow model from disk.
+
+    Notes:
+      - This function imports TensorFlow lazily.
+      - Intended to be used as `loader_fn` argument.
+    """
+    try:
+        from tensorflow.keras.models import load_model  # type: ignore
+    except Exception as e:  # pragma: no cover
+        raise ImportError(
+            "TensorFlow/Keras is required to load Keras models"
+        ) from e
+
+    return load_model(model_path)
+
+
+def model_cache_key(model_path: str) -> str:
+    """Get a simple cache key for callers that only need the path+mtime.
+
+    Returns:
+        String key.
+    """
+    p = Path(model_path)
+    stat = p.stat()
+    return f"{str(p.resolve())}:{stat.st_mtime_ns}:{stat.st_size}"
+

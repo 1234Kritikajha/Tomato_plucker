@@ -65,16 +65,6 @@ from .tensor import (
 # Keep the factory function as a direct import
 from .tensor import create_tensor_processor
 
-# Mobile Camera
-from .mobile_camera import (
-    MobileCameraManager,
-    CameraRequest,
-    CameraRequestStatus,
-    CameraFrame,
-    DetectionResult,
-    create_mobile_camera_manager
-)
-
 __all__ = [
     # Database
     'init_db',
@@ -126,12 +116,4 @@ __all__ = [
     'TensorProcessor',
     'TensorInfo',
     'create_tensor_processor',
-    
-    # Mobile Camera
-    'MobileCameraManager',
-    'CameraRequest',
-    'CameraRequestStatus',
-    'CameraFrame',
-    'DetectionResult',
-    'create_mobile_camera_manager',
 ]

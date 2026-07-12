@@ -2,12 +2,8 @@ from __future__ import annotations
 
 import logging
 from typing import Any, Dict, List, Optional
+import psutil
 import platform
-
-try:
-    import psutil
-except Exception:  # pragma: no cover
-    psutil = None
 
 logger = logging.getLogger(__name__)
 
@@ -96,27 +92,22 @@ class GPUHandler:
         Returns:
             Memory information dictionary
         """
-        if psutil:
-            try:
-                mem = psutil.virtual_memory()
-                return {
-                    "total_gb": mem.total / (1024**3),
-                    "available_gb": mem.available / (1024**3),
-                    "used_gb": mem.used / (1024**3),
-                    "percent": mem.percent
-                }
-            except Exception as e:
-                logger.error(f"Error getting memory info: {e}")
-        else:
-            logger.warning("psutil not available, returning default memory info")
-        
-        # Fallback default values
-        return {
-            "total_gb": 8.0,
-            "available_gb": 4.0,
-            "used_gb": 4.0,
-            "percent": 50.0
-        }
+        try:
+            mem = psutil.virtual_memory()
+            return {
+                "total_gb": mem.total / (1024**3),
+                "available_gb": mem.available / (1024**3),
+                "used_gb": mem.used / (1024**3),
+                "percent": mem.percent
+            }
+        except Exception as e:
+            logger.error(f"Error getting memory info: {e}")
+            return {
+                "total_gb": 0,
+                "available_gb": 0,
+                "used_gb": 0,
+                "percent": 0
+            }
     
     def is_gpu_available(self) -> bool:
         """Check if GPU is available.
