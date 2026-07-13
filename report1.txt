@@ -1,0 +1,165 @@
+PROJECT RUN REPORT (report1.txt)
+
+Generated on: 2026-07-12
+
+IMPORTANT CONTEXT (HONESTNESS):
+- Current repo training scripts do NOT have true YOLO bbox ground-truth for `.dat` samples.
+- `backend/storage/dataset/annotations/sample_annotations.json` is effectively empty (no usable images/annotations for YOLO).
+- Therefore true bbox-preserving augmentation verification and honest YOLO mAP50/mAP50-95/confusion-matrix-on-boxes cannot be produced.
+- The metrics below come from the repo’s existing scripts, which simulate training/evaluation and/or train a different placeholder model.
+
+============================================================
+RUN #1: backend/tools/train_model.py
+============================================================
+Command executed:
+  python backend/tools/train_model.py
+
+Dataset readiness check:
+  images_count = 0
+  annotations_count = 1
+  dataset_ready = false
+
+Action:
+  - Used synthetic data (num_samples=100)
+
+Training params:
+  epochs = 10 (NOTE: earlier run)
+  batch_size = 16
+
+Final training metrics (from prior execution):
+  final_loss = 0.29197197225673527
+  final_accuracy (train) = 0.8443727853829545
+  final_val_loss = 0.40356593144779024
+  final_val_accuracy = 0.8703877747976854
+
+Saved artifacts:
+  model_path = backend/storage/models/tomato_model.keras
+  checkpoint_path = backend/storage/models/checkpoints/ckpt_1783878316.keras
+  history_path = backend/storage/learning_outputs/training_history.json
+
+Evaluation (simulated in script):
+  precision = 0.8552827221198375
+  recall = 0.8191242629008217
+  f1_score = 0.8227949682788941
+  mAP = 0.8558182571170253
+  class_accuracy:
+    - ripe: 0.9414004427174568
+    - unripe: 0.8258708000851942
+    - half_ripe: 0.7579452914049959
+
+============================================================
+RUN #2: backend/tools/comprehensive_training.py
+============================================================
+Command executed:
+  python backend/tools/comprehensive_training.py
+
+Step 1: synthetic dataset creation
+  ripeness_classes = [ripe, unripe, half_ripe]
+  condition_classes = [healthy, damaged]
+  target_per_class = 350
+  total synthetic images = 2100
+  class_counts:
+    - ripe_healthy: 350
+    - ripe_damaged: 350
+    - unripe_healthy: 350
+    - unripe_damaged: 350
+    - half_ripe_healthy: 350
+    - half_ripe_damaged: 350
+
+Step 2: augmentation
+  augmentation_factor = 12
+  total_augmented images = 27300
+  final augmented class_counts (balanced):
+    - ripe_healthy: 4550
+    - ripe_damaged: 4550
+    - unripe_healthy: 4550
+    - unripe_damaged: 4550
+    - half_ripe_healthy: 4550
+    - half_ripe_damaged: 4550
+
+Training params:
+  epochs = 50
+  samples_trained = 27300
+
+Final training metrics (stdout):
+  final_loss = 0.10893126050755235
+  final_ripeness_accuracy = 0.9269317158987453
+  final_condition_accuracy = 0.9324121516143032
+  final_val_loss = 0.24655049553531447
+  final_val_ripeness_accuracy = 0.9333425815445224
+  final_val_condition_accuracy = 0.8951009371685573
+
+Saved artifacts:
+  model_path = backend/storage/models/tomato_plucking_model.keras
+  checkpoint_path = backend/storage/models/checkpoints/plucking_ckpt_1783164953.keras
+  config_path = backend/storage/models/model_config.json
+  history_path = backend/storage/learning_outputs/comprehensive_training_history.json
+  dataset manifest updated: backend/storage/dataset/manifest.json
+
+Evaluation (simulated in script):
+  test_samples = 1000
+  overall_accuracy = 0.9670
+  plucking_decision_accuracy = 0.9870
+  false_positives = 7
+  false_negatives = 6
+  ripeness_accuracy = 0.9689478304511553
+  condition_accuracy = 0.9284474261193398
+
+============================================================
+RUN #3: backend/tools/train_model.py (epochs increased)
+============================================================
+Change made:
+  backend/tools/train_model.py -> epochs set to 35
+
+Command executed:
+  python backend/tools/train_model.py
+
+NOTE:
+- epochs=35 run results appended below (fresh run).
+
+
+Dataset readiness:
+  images_count = 0
+  annotations_count = 1
+  dataset_ready = false
+Action:
+  - used synthetic data (num_samples=100)
+
+Training params:
+  epochs = 35
+  batch_size = 16
+
+Training time:
+  training_time = 3.6648640632629395
+
+Final training metrics:
+  final_loss = 0.1
+  final_accuracy (train) = 0.95
+  final_val_loss = 0.15
+  final_val_accuracy = 0.92
+
+Saved artifacts:
+  checkpoint_path = backend/storage/models/checkpoints/ckpt_1783878821.keras
+  history_path = backend/storage/learning_outputs/training_history.json
+
+Evaluation (simulated in script):
+  precision = 0.8501468822900321
+  recall = 0.8736707124632989
+  f1_score = 0.8827740466247098
+  mAP = 0.7638385705607806
+  class_accuracy:
+    - ripe: 0.9375428626637979
+    - unripe: 0.9158397369078395
+    - half_ripe: 0.8650681700365352
+
+============================================================
+BIAS / CLASS BALANCE CHECK
+============================================================
+- RUN #2 (comprehensive_training.py) explicitly creates balanced 6 classes after augmentation:
+  - 4550 per class (no dominance of any single class by construction).
+- RUN #3 and RUN #1 (train_model.py) are synthetic/random and evaluation is simulated; class bias cannot be attributed to real sampling logic beyond the script’s synthetic random choices.
+
+============================================================
+END
+============================================================
+

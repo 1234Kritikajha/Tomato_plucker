@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 import re
 import time
 from datetime import datetime, timezone
@@ -11,17 +12,30 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-from app.utils.api_errors import op_error
-from core.database import insert_prediction
-from core.tomato_detector import TomatoDetector
+from backend.app.utils.api_errors import op_error
+from backend.core.database import insert_prediction
+from backend.core.tomato_detector import TomatoDetector
 
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 UPLOADS_DIR = Path(__file__).resolve().parent.parent.parent / "storage" / "uploads"
+MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "storage" / "models"
+YOLO_MODEL_PATH = MODELS_DIR / "tomato_yolo.pt"
 
 MAX_BYTES = 10 * 1024 * 1024  # 10MB
 ALLOWED_EXT = {".jpg", ".jpeg", ".png", ".webp"}
+YOLO_CLASS_NAMES = {
+    0: "Ripe, Healthy",
+    1: "Ripe, Damaged",
+    2: "Unripe, Healthy",
+    3: "Unripe, Damaged",
+    4: "Halfripe, Healthy",
+    5: "Halfripe, Damaged",
+}
+_YOLO_MODEL = None
+_YOLO_SOURCE = ""
 
 
 def _validate_magic_bytes(image_bytes: bytes) -> str:
@@ -57,6 +71,209 @@ def _sanitize_filename(name: str) -> str:
 
 def _sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
+
+
+def _load_yolo_model():
+    global _YOLO_MODEL, _YOLO_SOURCE
+
+    if _YOLO_MODEL is not None:
+        return _YOLO_MODEL, _YOLO_SOURCE
+
+    try:
+        from ultralytics import YOLO
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=op_error(
+                message=f"Ultralytics YOLO is not installed or unavailable: {exc}",
+                status=503,
+            ),
+        ) from exc
+
+    if YOLO_MODEL_PATH.exists():
+        model_ref = str(YOLO_MODEL_PATH)
+        _YOLO_SOURCE = "tomato_yolo.pt"
+    else:
+        model_ref = "yolov8n.pt"
+        _YOLO_SOURCE = "yolov8n.pt"
+        logger.warning(
+            "Custom tomato YOLO weights not found at %s. Falling back to pretrained yolov8n.pt.",
+            YOLO_MODEL_PATH,
+        )
+
+    try:
+        _YOLO_MODEL = YOLO(model_ref)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=op_error(message=f"Failed to load YOLO model {model_ref}: {exc}", status=503),
+        ) from exc
+
+    return _YOLO_MODEL, _YOLO_SOURCE
+
+
+def _decode_image_with_opencv(image_bytes: bytes):
+    try:
+        import cv2
+        import numpy as np
+    except Exception as exc:
+        raise HTTPException(
+            status_code=503,
+            detail=op_error(
+                message=f"OpenCV/numpy dependencies are unavailable: {exc}",
+                status=503,
+            ),
+        ) from exc
+
+    image_array = np.frombuffer(image_bytes, dtype=np.uint8)
+    image = cv2.imdecode(image_array, cv2.IMREAD_COLOR)
+    if image is None:
+        raise HTTPException(
+            status_code=400,
+            detail=op_error(message="Unable to decode image", status=400),
+        )
+
+    return image
+
+
+def _split_class_label(class_label: str) -> tuple[str, str]:
+    ripeness, condition = [part.strip() for part in class_label.split(",", 1)]
+    if ripeness == "Halfripe":
+        ripeness = "Half-Ripe"
+    return ripeness, condition
+
+
+def _run_yolo_inference(image_bytes: bytes, confidence_threshold: float = 0.25) -> tuple[list[dict[str, Any]], str]:
+    image = _decode_image_with_opencv(image_bytes)
+    model, model_source = _load_yolo_model()
+
+    results = model(image, conf=confidence_threshold, verbose=False)
+    if not results:
+        return [], model_source
+
+    result = results[0]
+    names = getattr(result, "names", {}) or {}
+    detections: list[dict[str, Any]] = []
+
+    for box in result.boxes:
+        class_id = int(box.cls[0].item())
+        confidence = float(box.conf[0].item())
+        xyxy = box.xyxy[0].detach().cpu().tolist()
+        xmin, ymin, xmax, ymax = [float(value) for value in xyxy]
+
+        class_label = YOLO_CLASS_NAMES.get(class_id)
+        if class_label is None:
+            class_label = str(names.get(class_id, f"Class {class_id}"))
+            logger.warning(
+                "YOLO returned class id %s outside the TomatoPlucker 6-class matrix. Label=%s",
+                class_id,
+                class_label,
+            )
+
+        if "," in class_label:
+            ripeness, condition = _split_class_label(class_label)
+        else:
+            ripeness, condition = class_label, "Unknown"
+
+        detections.append(
+            {
+                "box": [xmin, ymin, xmax, ymax],
+                "class_id": class_id,
+                "class_label": class_label,
+                "confidence": confidence * 100.0,
+                "ripeness": ripeness,
+                "condition": condition,
+                "ripeness_conf": confidence,
+                "condition_conf": confidence,
+                "overall_conf": confidence,
+                "pick": class_label == "Ripe, Healthy",
+            }
+        )
+
+    return detections, model_source
+
+
+def _pdf_escape(value: Any) -> str:
+    text = str(value)
+    return text.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
+
+
+def _write_basic_pdf_report(
+    pdf_path: Path,
+    *,
+    filename: str,
+    summary: Dict[str, Any],
+    detections: List[Dict[str, Any]],
+) -> None:
+    """Write a small valid PDF without optional reportlab dependency."""
+    lines = [
+        "Tomato Analysis Report",
+        f"Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+        f"Image: {filename}",
+        "",
+        "Analysis Summary",
+        f"Total Tomatoes: {summary['total_tomatoes_detected']}",
+        f"Should Pluck: {summary['plucking_decisions']['should_pluck']}",
+        f"Should Not Pluck: {summary['plucking_decisions']['should_not_pluck']}",
+        f"Pluckable Percentage: {summary['plucking_decisions']['pluckable_percentage']:.1f}%",
+        f"Average Confidence: {summary['confidence_metrics']['average_overall_confidence'] * 100:.1f}%",
+        "",
+        "Ripeness Distribution",
+    ]
+    lines.extend(f"{key}: {value}" for key, value in summary["ripeness_distribution"].items())
+    lines.append("")
+    lines.append("Condition Distribution")
+    lines.extend(f"{key}: {value}" for key, value in summary["condition_distribution"].items())
+    lines.append("")
+    lines.append("Detection Details")
+    for detection in detections[:24]:
+        classification = detection["classification"]
+        pluckable = "Yes" if detection["plucking_decision"]["should_pluck"] else "No"
+        confidence = classification["overall_confidence"] * 100
+        lines.append(
+            f"#{detection['id']} {classification['ripeness']} / "
+            f"{classification['condition']} / {confidence:.1f}% / Pluckable: {pluckable}"
+        )
+    if len(detections) > 24:
+        lines.append(f"... {len(detections) - 24} more detections")
+
+    content_lines = ["BT", "/F1 12 Tf", "72 744 Td", "14 TL"]
+    for index, line in enumerate(lines):
+        if index:
+            content_lines.append("T*")
+        content_lines.append(f"({_pdf_escape(line)}) Tj")
+    content_lines.append("ET")
+    content = "\n".join(content_lines).encode("latin-1", errors="replace")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+        b"/Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >>",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        b"<< /Length " + str(len(content)).encode("ascii") + b" >>\nstream\n" + content + b"\nendstream",
+    ]
+
+    output = bytearray(b"%PDF-1.4\n")
+    offsets = [0]
+    for number, obj in enumerate(objects, start=1):
+        offsets.append(len(output))
+        output.extend(f"{number} 0 obj\n".encode("ascii"))
+        output.extend(obj)
+        output.extend(b"\nendobj\n")
+
+    xref_offset = len(output)
+    output.extend(f"xref\n0 {len(objects) + 1}\n".encode("ascii"))
+    output.extend(b"0000000000 65535 f \n")
+    for offset in offsets[1:]:
+        output.extend(f"{offset:010d} 00000 n \n".encode("ascii"))
+    output.extend(
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref_offset}\n%%EOF\n".encode("ascii")
+    )
+
+    pdf_path.parent.mkdir(parents=True, exist_ok=True)
+    pdf_path.write_bytes(output)
 
 
 @router.post("/upload")
@@ -102,17 +319,7 @@ async def upload(file: UploadFile = File(...)) -> JSONResponse:
 
 @router.post("/predict")
 async def predict(file: UploadFile = File(...)) -> JSONResponse:
-    """Enhanced prediction endpoint with detailed analysis
-    
-    Provides:
-    - Bounding boxes for all detected tomatoes
-    - Ripeness classification (ripe, unripe, half_ripe)
-    - Condition classification (healthy, damaged)
-    - Confidence scores for each classification
-    - Plucking decision (ripe + healthy = pluckable)
-    - Detailed statistics and summary
-    """
-
+    """Run YOLOv8 tomato detection using the 6-class ripeness/condition matrix."""
     if not file:
         raise HTTPException(
             status_code=400,
@@ -136,13 +343,10 @@ async def predict(file: UploadFile = File(...)) -> JSONResponse:
     _validate_magic_bytes(contents)
 
     filename = file.filename or "upload"
-
-    detector = TomatoDetector()
-    detections = detector.detect_and_classify(contents, filename=filename)
+    detections, model_source = _run_yolo_inference(contents)
 
     ts = datetime.now(timezone.utc).isoformat()
 
-    # Store in database
     for d in detections:
         await asyncio.sleep(0)
         insert_prediction(
@@ -156,80 +360,74 @@ async def predict(file: UploadFile = File(...)) -> JSONResponse:
             pick=bool(d["pick"]),
         )
 
-    # Calculate detailed statistics
     total_detected = len(detections)
-    
-    # Ripeness distribution
     ripeness_counts = {
         "Ripe": 0,
         "Unripe": 0,
-        "Half-Ripe": 0
+        "Half-Ripe": 0,
     }
-    
-    # Condition distribution
     condition_counts = {
         "Healthy": 0,
-        "Damaged": 0
+        "Damaged": 0,
     }
-    
-    # Plucking decision counts
     pluckable_count = 0
     not_pluckable_count = 0
-    
-    # Average confidence scores
-    ripeness_confidences = []
-    condition_confidences = []
-    
+    confidence_values = []
+
     for d in detections:
-        ripeness_counts[d["ripeness"]] += 1
-        condition_counts[d["condition"]] += 1
-        
+        if d["ripeness"] in ripeness_counts:
+            ripeness_counts[d["ripeness"]] += 1
+        if d["condition"] in condition_counts:
+            condition_counts[d["condition"]] += 1
+
         if d["pick"]:
             pluckable_count += 1
         else:
             not_pluckable_count += 1
-        
-        ripeness_confidences.append(d["ripeness_conf"])
-        condition_confidences.append(d["condition_conf"])
-    
-    # Calculate averages
-    avg_ripeness_conf = sum(ripeness_confidences) / len(ripeness_confidences) if ripeness_confidences else 0
-    avg_condition_conf = sum(condition_confidences) / len(condition_confidences) if condition_confidences else 0
-    avg_overall_conf = (avg_ripeness_conf + avg_condition_conf) / 2 if total_detected > 0 else 0
-    
-    # Enhanced detection response with labels and detailed info
+
+        confidence_values.append(d["overall_conf"])
+
+    avg_conf = sum(confidence_values) / len(confidence_values) if confidence_values else 0.0
+
     enhanced_detections = []
     for i, d in enumerate(detections):
+        xmin, ymin, xmax, ymax = d["box"]
+        width = max(0.0, xmax - xmin)
+        height = max(0.0, ymax - ymin)
+
         enhanced_detections.append({
             "id": i + 1,
+            "box": d["box"],
+            "class_id": d["class_id"],
+            "class_label": d["class_label"],
+            "confidence": d["confidence"],
             "bounding_box": {
-                "x": d["box"][0],
-                "y": d["box"][1],
-                "width": d["box"][2],
-                "height": d["box"][3],
+                "x": xmin,
+                "y": ymin,
+                "width": width,
+                "height": height,
                 "normalized": False,
-                "label": f"Tomato #{i + 1}"
+                "label": d["class_label"],
             },
             "classification": {
                 "ripeness": d["ripeness"],
                 "ripeness_confidence": d["ripeness_conf"],
                 "condition": d["condition"],
                 "condition_confidence": d["condition_conf"],
-                "overall_confidence": (d["ripeness_conf"] + d["condition_conf"]) / 2
+                "overall_confidence": d["overall_conf"],
             },
             "plucking_decision": {
                 "should_pluck": d["pick"],
-                "reason": "Ripe and healthy" if d["pick"] else f"Not ripe or not healthy ({d['ripeness']}, {d['condition']})",
-                "confidence": (d["ripeness_conf"] + d["condition_conf"]) / 2 if d["pick"] else 1 - ((d["ripeness_conf"] + d["condition_conf"]) / 2)
+                "reason": "Ripe and healthy" if d["pick"] else f"Not pluckable ({d['class_label']})",
+                "confidence": d["overall_conf"],
             },
             "quality_score": {
-                "overall": (d["ripeness_conf"] + d["condition_conf"]) / 2,
+                "overall": d["overall_conf"],
                 "color_quality": d["ripeness_conf"],
-                "health_quality": d["condition_conf"]
-            }
+                "health_quality": d["condition_conf"],
+            },
         })
-    
-    # Generate summary report
+
     summary = {
         "total_tomatoes_detected": total_detected,
         "ripeness_distribution": ripeness_counts,
@@ -240,17 +438,17 @@ async def predict(file: UploadFile = File(...)) -> JSONResponse:
             "pluckable_percentage": (pluckable_count / total_detected * 100) if total_detected > 0 else 0
         },
         "confidence_metrics": {
-            "average_ripeness_confidence": avg_ripeness_conf,
-            "average_condition_confidence": avg_condition_conf,
-            "average_overall_confidence": avg_overall_conf
+            "average_ripeness_confidence": avg_conf,
+            "average_condition_confidence": avg_conf,
+            "average_overall_confidence": avg_conf
         },
         "quality_assessment": {
-            "high_quality_tomatoes": sum(1 for d in detections if d["ripeness_conf"] > 0.8 and d["condition_conf"] > 0.8),
-            "medium_quality_tomatoes": sum(1 for d in detections if 0.6 < d["ripeness_conf"] <= 0.8 or 0.6 < d["condition_conf"] <= 0.8),
-            "low_quality_tomatoes": sum(1 for d in detections if d["ripeness_conf"] <= 0.6 or d["condition_conf"] <= 0.6)
+            "high_quality_tomatoes": sum(1 for d in detections if d["overall_conf"] > 0.8),
+            "medium_quality_tomatoes": sum(1 for d in detections if 0.6 < d["overall_conf"] <= 0.8),
+            "low_quality_tomatoes": sum(1 for d in detections if d["overall_conf"] <= 0.6)
         }
     }
-    
+
     return JSONResponse(
         {
             "status": "success",
@@ -263,9 +461,11 @@ async def predict(file: UploadFile = File(...)) -> JSONResponse:
             "detections": enhanced_detections,
             "summary": summary,
             "model_info": {
-                "localization_source": detector.localization_source,
-                "model_loaded": detector._primary_model_loaded,
-                "confidence_threshold": detector.low_conf_threshold
+                "localization_source": "yolov8",
+                "model_source": model_source,
+                "model_loaded": YOLO_MODEL_PATH.exists(),
+                "class_matrix": YOLO_CLASS_NAMES,
+                "confidence_threshold": 0.25,
             }
         }
     )
@@ -275,7 +475,7 @@ async def predict(file: UploadFile = File(...)) -> JSONResponse:
 async def get_prediction_history(limit: int = 10) -> JSONResponse:
     """Get recent prediction history from database"""
     try:
-        from core.database import get_recent_predictions
+        from backend.core.database import get_recent_predictions
         
         predictions = get_recent_predictions(limit=limit)
         
@@ -542,10 +742,23 @@ async def generate_report(file: UploadFile = File(...)) -> JSONResponse:
         })
         
     except ImportError:
+        pdf_path = UPLOADS_DIR / f"report_{int(time.time())}.pdf"
+        _write_basic_pdf_report(
+            pdf_path,
+            filename=filename,
+            summary=summary,
+            detections=enhanced_detections,
+        )
         return JSONResponse({
-            "status": "error",
-            "message": "PDF generation not available. Install reportlab: pip install reportlab"
-        }, status_code=500)
+            "status": "success",
+            "report_path": str(pdf_path.name),
+            "download_url": f"/api/reports/download/{pdf_path.name}",
+            "analysis": {
+                "summary": summary,
+                "detections": enhanced_detections
+            },
+            "pdf_engine": "basic"
+        })
     except Exception as e:
         raise HTTPException(
             status_code=500,
@@ -570,4 +783,3 @@ async def download_report(filename: str):
         media_type="application/pdf",
         filename=filename
     )
-

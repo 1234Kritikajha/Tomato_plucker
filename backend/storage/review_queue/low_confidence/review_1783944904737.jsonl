@@ -1,0 +1,1 @@
+{"type": "low_confidence", "data": {"filename": "Screenshot 2026-07-13 at 12.17.16 AM.png", "timestamp": "2026-07-13T12:15:04.737724+00:00", "box": [45.0, 153.0, 707.0, 617.0], "ripeness": "Ripe", "ripeness_conf": 0.9202854037284851, "condition": "Healthy", "condition_conf": 0.5136381387710571, "pick": true, "localization_source": "classic_cv"}}

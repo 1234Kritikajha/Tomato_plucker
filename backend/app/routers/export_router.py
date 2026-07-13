@@ -10,8 +10,8 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from app.utils.api_errors import op_error
-from core.database import get_recent_predictions
+from backend.app.utils.api_errors import op_error
+from backend.core.database import get_recent_predictions
 
 
 router = APIRouter()

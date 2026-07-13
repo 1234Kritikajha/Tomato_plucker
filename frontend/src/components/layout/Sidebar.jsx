@@ -87,7 +87,7 @@ export default function Sidebar() {
         title: 'ANALYTICS',
         items: [
           { icon: Activity, label: 'Monitoring', to: '/monitoring' },
-          { icon: FileCheck, label: 'Reports', to: '/dashboard' },
+          { icon: FileCheck, label: 'Reports', to: '/reports' },
           { icon: TrendingUp, label: 'Insights', to: '/dashboard' },
         ],
       },
@@ -157,4 +157,3 @@ export default function Sidebar() {
     </aside>
   )
 }
-

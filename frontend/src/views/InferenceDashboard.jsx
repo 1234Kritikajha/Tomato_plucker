@@ -15,20 +15,23 @@ export default function InferenceDashboardView() {
   const [summary, setSummary] = useState(null)
   const [performance, setPerformance] = useState(null)
   const [historical, setHistorical] = useState(null)
+  const [recentPredictions, setRecentPredictions] = useState(null)
 
   const fetchAll = async () => {
     setError(null)
     setLoading(true)
     try {
-      const [summaryRes, perfRes, histRes] = await Promise.all([
+      const [summaryRes, perfRes, histRes, predRes] = await Promise.all([
         apiClient.get('/metrics/summary'),
         apiClient.get('/metrics/performance'),
         apiClient.get('/metrics/historical?days=1'),
+        apiClient.getPredictionHistory(10)
       ])
 
       setSummary(summaryRes?.metrics ?? null)
       setPerformance(perfRes?.performance_metrics ?? null)
       setHistorical(histRes?.historical_metrics ?? null)
+      setRecentPredictions(predRes?.predictions ?? null)
     } catch (e) {
       setError(e?.message || 'Failed to load dashboard metrics')
     } finally {
@@ -246,13 +249,58 @@ export default function InferenceDashboardView() {
                 </tr>
               </thead>
               <tbody>
-                <tr>
-                  <td className="py-4 text-slate-500" colSpan={6}>
-                    {loading
-                      ? 'Loading…'
-                      : 'Recent detection table not wired yet (requires /api/predict/history or a dedicated endpoint).'}
-                  </td>
-                </tr>
+                {loading ? (
+                  <tr>
+                    <td className="py-4 text-slate-500" colSpan={6}>
+                      Loading…
+                    </td>
+                  </tr>
+                ) : !recentPredictions || recentPredictions.length === 0 ? (
+                  <tr>
+                    <td className="py-4 text-slate-500" colSpan={6}>
+                      No recent predictions available
+                    </td>
+                  </tr>
+                ) : (
+                  recentPredictions.map((pred, index) => (
+                    <tr key={index} className="border-b border-slate-100 dark:border-slate-800">
+                      <td className="py-3 text-slate-600 dark:text-slate-400">
+                        {new Date(pred.timestamp).toLocaleTimeString()}
+                      </td>
+                      <td className="py-3 text-slate-600 dark:text-slate-400">
+                        {pred.filename}
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          pred.ripeness === 'Ripe' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                          pred.ripeness === 'Unripe' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                          'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200'
+                        }`}>
+                          {pred.ripeness}
+                        </span>
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          pred.condition === 'Healthy' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200' :
+                          'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200'
+                        }`}>
+                          {pred.condition}
+                        </span>
+                      </td>
+                      <td className="py-3 text-slate-600 dark:text-slate-400">
+                        {((pred.ripeness_conf + pred.condition_conf) / 2 * 100).toFixed(1)}%
+                      </td>
+                      <td className="py-3">
+                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                          pred.pick ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                          'bg-gray-100 text-gray-800 dark:bg-gray-900 dark:text-gray-200'
+                        }`}>
+                          {pred.pick ? 'Pluck' : 'Skip'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

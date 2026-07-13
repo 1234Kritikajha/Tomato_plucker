@@ -10,7 +10,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.utils.api_errors import op_error
+from backend.app.utils.api_errors import op_error
 
 
 router = APIRouter()

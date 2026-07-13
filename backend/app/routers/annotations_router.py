@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from core.database import get_pending_reviews, insert_annotation
-from app.utils.api_errors import op_error
+from backend.core.database import get_pending_reviews, insert_annotation
+from backend.app.utils.api_errors import op_error
 
 
 router = APIRouter()

@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 
 import PageShell from './components/layout/PageShell.jsx'
@@ -17,8 +17,11 @@ import ActiveLearningView from './views/ActiveLearningView.jsx'
 import UploadImageView from './views/UploadImageView.jsx'
 import UploadVideoView from './views/UploadVideoView.jsx'
 import AdminReviewQueueView from './views/AdminReviewQueueView.jsx'
+import ReportView from './views/ReportView.jsx'
 
 export default function App() {
+  const [latestAnalysis, setLatestAnalysis] = useState(null)
+
   return (
     <PageShell>
       <Routes>
@@ -34,11 +37,14 @@ export default function App() {
         <Route path="/annotations" element={<AnnotationsView />} />
         <Route path="/dataset" element={<LearningDatasetView />} />
         <Route path="/active-learning" element={<ActiveLearningView />} />
-        <Route path="/upload-image" element={<UploadImageView />} />
+        <Route
+          path="/upload-image"
+          element={<UploadImageView onAnalysisComplete={setLatestAnalysis} />}
+        />
         <Route path="/upload-video" element={<UploadVideoView />} />
         <Route path="/admin-review-queue" element={<AdminReviewQueueView />} />
+        <Route path="/reports" element={<ReportView latestAnalysis={latestAnalysis} />} />
       </Routes>
     </PageShell>
   )
 }
-

@@ -1,21 +1,18 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 from pathlib import Path
 from typing import Any, Dict
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 
-# Add backend to path
-backend_root = Path(__file__).parent.parent.parent
-sys.path.insert(0, str(backend_root))
-
-from ml.learning_pipeline.auto_learning import run_auto_learning_loop
-from app.utils.api_errors import op_error
-from tools.train_model import TomatoTrainer
+from backend.app.utils.api_errors import op_error
+from backend.tools.train_model import TomatoTrainer
 
 router = APIRouter()
+
+backend_root = Path(__file__).resolve().parent.parent.parent
+
 
 def _background_train() -> Dict[str, Any]:
     """Background training task using new training pipeline"""
@@ -89,5 +86,19 @@ async def get_training_status() -> Dict[str, Any]:
             status_code=500,
             detail=op_error(message=f"Failed to get training status: {e}", status=500),
         )
+
+@router.post("/train/start")
+async def start_training(background_tasks: BackgroundTasks) -> Dict[str, Any]:
+    """Start model training (alias for trigger_train)"""
+    return await trigger_train(background_tasks)
+
+@router.post("/train/stop")
+async def stop_training() -> Dict[str, Any]:
+    """Stop current training (placeholder for now)"""
+    # TODO: Implement actual training stop functionality
+    return {
+        "status": "success",
+        "message": "Training stop requested (not fully implemented yet)"
+    }
 
 

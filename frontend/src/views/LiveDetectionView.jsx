@@ -20,20 +20,23 @@ const drawDetections = ({ ctx, detections, video, canvas }) => {
 
   ctx.clearRect(0, 0, cW, cH)
 
-  const sx = cW / vW
-  const sy = cH / vH
+  const scale = Math.max(cW / vW, cH / vH)
+  const renderedW = vW * scale
+  const renderedH = vH * scale
+  const offsetX = (cW - renderedW) / 2
+  const offsetY = (cH - renderedH) / 2
 
   for (const d of detections) {
     const bb = d?.bounding_box
     if (!bb) continue
 
-    const x = bb.x * sx
-    const y = bb.y * sy
-    const w = bb.width * sx
-    const h = bb.height * sy
+    const x = bb.x * scale + offsetX
+    const y = bb.y * scale + offsetY
+    const w = bb.width * scale
+    const h = bb.height * scale
 
     ctx.strokeStyle = 'rgba(34, 197, 94, 0.95)'
-    ctx.lineWidth = Math.max(2, Math.floor(Math.min(sx, sy)))
+    ctx.lineWidth = Math.max(2, Math.floor(scale))
     ctx.strokeRect(x, y, w, h)
 
     const label = d?.classification?.ripeness
@@ -96,7 +99,7 @@ export default function LiveDetectionView() {
     }
   }
 
-  const startCamera = async () => {
+  const startCamera = async (nextFacingMode = facingMode) => {
     setError(null)
     setDetectionsCount(0)
     pendingRef.current = false
@@ -106,7 +109,7 @@ export default function LiveDetectionView() {
 
       setStatus('Starting camera')
       const stream = await getUserMediaStream({
-        facingMode,
+        facingMode: nextFacingMode,
       })
 
 
@@ -134,6 +137,15 @@ export default function LiveDetectionView() {
       console.error(e)
 
     }
+  }
+
+  const switchCamera = async (nextFacingMode) => {
+    setFacingMode(nextFacingMode)
+    setIsOpen(false)
+    if (!running) return
+
+    await stopCamera()
+    await startCamera(nextFacingMode)
   }
 
   // FPS estimate (local render loop)
@@ -277,22 +289,16 @@ export default function LiveDetectionView() {
                     type="button"
                     className={
                       'inline-flex w-full items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition shadow-sm focus:outline-none focus:ring-2 focus:ring-emerald-400/70 dark:focus:ring-emerald-400/70 ' +
-                      (running
-                        ? 'cursor-not-allowed opacity-60'
-                        : 'hover:shadow-[0_0_10px_rgba(16,185,129,0.12)]') +
+                      'hover:shadow-[0_0_10px_rgba(16,185,129,0.12)] ' +
                       (isOpen
-                        ? 'shadow-[0_0_10px_rgba(16,185,129,0.2)]'
+                        ? 'shadow-[0_0_10px_rgba(16,185,129,0.2)] '
                         : '') +
                       ' ' +
-                      'bg-slate-800/50 border-emerald-500/30 text-slate-200 ' +
-                      'dark:bg-[#1e2530] dark:border-emerald-500/30 dark:text-slate-200 ' +
-                      'bg-white text-slate-800 border-slate-300 dark:bg-slate-800/50 dark:text-slate-200'
+                      'border-[var(--border-color)] bg-[var(--bg-card)] text-[var(--text-primary)]'
                     }
                     onClick={() => {
-                      if (running) return
                       setIsOpen((v) => !v)
                     }}
-                    disabled={running}
                     aria-haspopup="listbox"
                     aria-expanded={isOpen}
                   >
@@ -313,31 +319,25 @@ export default function LiveDetectionView() {
 
                   {isOpen && (
                     <div
-                      className="absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-slate-700 bg-[#1a202c] shadow-lg"
+                      className="absolute z-50 mt-2 w-full overflow-hidden rounded-lg border border-[var(--border-color)] bg-[var(--bg-card)] shadow-lg"
                       role="listbox"
                       aria-label="Camera facing mode options"
                     >
                       <button
                         type="button"
-                        className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-emerald-600/20 hover:text-emerald-400"
+                        className="block w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-card-hover)] hover:text-[var(--accent-primary)]"
                         role="option"
                         aria-selected={facingMode === 'environment'}
-                        onClick={() => {
-                          setFacingMode('environment')
-                          setIsOpen(false)
-                        }}
+                        onClick={() => switchCamera('environment')}
                       >
                         Rear camera
                       </button>
                       <button
                         type="button"
-                        className="block w-full px-3 py-2 text-left text-sm text-slate-200 transition hover:bg-emerald-600/20 hover:text-emerald-400"
+                        className="block w-full px-3 py-2 text-left text-sm text-[var(--text-primary)] transition hover:bg-[var(--bg-card-hover)] hover:text-[var(--accent-primary)]"
                         role="option"
                         aria-selected={facingMode === 'user'}
-                        onClick={() => {
-                          setFacingMode('user')
-                          setIsOpen(false)
-                        }}
+                        onClick={() => switchCamera('user')}
                       >
                         Front camera
                       </button>
@@ -458,4 +458,3 @@ export default function LiveDetectionView() {
     </section>
   )
 }
-

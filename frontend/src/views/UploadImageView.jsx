@@ -2,10 +2,9 @@ import ThemeToggle from '../components/ThemeToggle.jsx'
 import { useState } from 'react'
 import apiClient from '../api/client.js'
 
-export default function UploadImageView() {
+export default function UploadImageView({ onAnalysisComplete }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [analyzing, setAnalyzing] = useState(false)
-  const [generatingReport, setGeneratingReport] = useState(false)
   const [analysisResult, setAnalysisResult] = useState(null)
   const [error, setError] = useState(null)
 
@@ -31,47 +30,18 @@ export default function UploadImageView() {
       const formData = new FormData()
       formData.append('file', selectedFile)
 
-      const response = await fetch('http://192.168.0.152:8000/api/predict', {
-        method: 'POST',
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error('Analysis failed')
-      }
-
-      const result = await response.json()
+      const result = await apiClient.upload('/predict', formData)
       setAnalysisResult(result)
+      onAnalysisComplete?.({
+        file: selectedFile,
+        result,
+        analyzedAt: new Date().toISOString(),
+      })
     } catch (err) {
       setError('Failed to analyze image. Please try again.')
       console.error(err)
     } finally {
       setAnalyzing(false)
-    }
-  }
-
-  const handleGenerateReport = async () => {
-    if (!selectedFile) {
-      setError('Please select an image first')
-      return
-    }
-
-    setGeneratingReport(true)
-    setError(null)
-
-    try {
-      const result = await apiClient.generateReport(selectedFile)
-      
-      if (result.status === 'success') {
-        // Download the report
-        await apiClient.downloadReport(result.report_path)
-        alert('Report generated and downloaded successfully!')
-      }
-    } catch (err) {
-      setError('Failed to generate report. Please try again.')
-      console.error(err)
-    } finally {
-      setGeneratingReport(false)
     }
   }
 
@@ -123,14 +93,6 @@ export default function UploadImageView() {
                 className="btn btn-primary flex-1"
               >
                 {analyzing ? 'Analyzing...' : 'Analyze Image'}
-              </button>
-              
-              <button
-                onClick={handleGenerateReport}
-                disabled={!selectedFile || generatingReport}
-                className="btn btn-secondary flex-1"
-              >
-                {generatingReport ? 'Generating...' : 'Generate Report'}
               </button>
             </div>
           </div>

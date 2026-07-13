@@ -5,10 +5,18 @@ import platform
 from pathlib import Path
 from typing import Any, Dict
 from datetime import datetime
+from pydantic import BaseModel
 
 from fastapi import APIRouter, HTTPException
 
-from app.utils.api_errors import op_error
+from backend.app.utils.api_errors import op_error
+
+
+class SystemConfigUpdate(BaseModel):
+    """System configuration update model"""
+    api: Dict[str, Any] = {}
+    model: Dict[str, Any] = {}
+    training: Dict[str, Any] = {}
 
 
 router = APIRouter()
@@ -171,3 +179,23 @@ def get_system_config() -> Dict[str, Any]:
             status_code=500,
             detail=op_error(message=f"Failed to get system config: {e}", status=500),
         )
+
+@router.put("/system/config")
+def update_system_config(config: SystemConfigUpdate) -> Dict[str, Any]:
+    """Update system configuration (placeholder for now)."""
+    # TODO: Implement actual config update with persistence
+    return {
+        "status": "success",
+        "message": "Configuration update requested (not fully implemented yet)",
+        "config": config.dict()
+    }
+
+@router.get("/system/logs")
+def get_system_logs() -> Dict[str, Any]:
+    """Get system logs (placeholder for now)."""
+    # TODO: Implement actual log retrieval
+    return {
+        "status": "success",
+        "message": "Log retrieval not fully implemented yet",
+        "logs": []
+    }

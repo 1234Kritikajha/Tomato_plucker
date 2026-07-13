@@ -1,21 +1,19 @@
 {
+  "input_size": [
+    224,
+    224,
+    3
+  ],
   "ripeness_classes": [
-    "ripe",
-    "unripe",
-    "half_ripe"
+    "Ripe",
+    "Unripe",
+    "Half-Ripe"
   ],
   "condition_classes": [
-    "healthy",
-    "damaged"
+    "Healthy",
+    "Damaged"
   ],
-  "plucking_decision": {
-    "logic": "ripeness == 'ripe' AND condition == 'healthy'",
-    "ripe_class_index": 0,
-    "healthy_class_index": 0,
-    "description": "Tomato is pluckable if it's ripe AND healthy"
-  },
-  "thresholds": {
-    "ripeness_confidence": 0.7,
-    "condition_confidence": 0.7
-  }
+  "model_type": "multi_output",
+  "framework": "tensorflow",
+  "version": "1.0.0"
 }

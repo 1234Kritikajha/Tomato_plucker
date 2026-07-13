@@ -11,15 +11,15 @@ from fastapi import Request
 from fastapi.exceptions import RequestValidationError
 
 
-from app.routers.predict_router import router as predict_router
-from app.routers.annotations_router import router as annotations_router
-from app.routers.models_router import router as models_router
-from app.routers.train_router import router as train_router
-from app.routers.monitoring_router import router as monitoring_router
-from app.routers.dataset_router import router as dataset_router
-from app.routers.evaluation_router import router as evaluation_router
-from app.routers.export_router import router as export_router
-from app.routers.system_router import router as system_router
+from backend.app.routers.predict_router import router as predict_router
+from backend.app.routers.annotations_router import router as annotations_router
+from backend.app.routers.models_router import router as models_router
+from backend.app.routers.train_router import router as train_router
+from backend.app.routers.monitoring_router import router as monitoring_router
+from backend.app.routers.dataset_router import router as dataset_router
+from backend.app.routers.evaluation_router import router as evaluation_router
+from backend.app.routers.export_router import router as export_router
+from backend.app.routers.system_router import router as system_router
 
 
 
